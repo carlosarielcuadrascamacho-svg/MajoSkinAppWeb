@@ -1,5 +1,3 @@
-import "server-only";
-
 import admin from "firebase-admin";
 
 interface ServiceAccount {
