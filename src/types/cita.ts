@@ -15,6 +15,8 @@ export interface Cita {
   estado: string;
   creadoEn?: Timestamp;
   recordatorios?: Record<string, boolean>;
+  ventaProcesada?: boolean;
+  productoVendidoId?: string;
 }
 
 export const citaConverter: FirestoreDataConverter<Cita> = {

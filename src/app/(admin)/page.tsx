@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Bell, BellOff, Calendar, TrendingUp, DollarSign, Settings, Download } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Bell, BellOff, Calendar, TrendingUp, DollarSign, Settings, Download, Award, Star, Percent } from "lucide-react";
 import { useDashboardResumen } from "@/hooks/useDashboardResumen";
+import { useCitas } from "@/hooks/useCitas";
+import { useTransacciones } from "@/hooks/useTransacciones";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { useAuth } from "@/context/AuthContext";
 import { auth } from "@/lib/firebase";
@@ -18,10 +20,76 @@ import Skeleton from "@/components/Skeleton";
 
 export default function Dashboard() {
   const { citasCount, ingresos, gastos, loading } = useDashboardResumen();
+  const { citas, loading: loadingCitas } = useCitas();
+  const { transacciones, loading: loadingTransacciones } = useTransacciones();
   const { install, isInstallable } = useInstallPrompt();
   const { currentUser } = useAuth();
   const { showToast } = useToast();
   const [showSettings, setShowSettings] = useState(false);
+
+  const insights = useMemo(() => {
+    const ahora = new Date();
+    const anioActual = ahora.getFullYear();
+    const mesActualStr = String(ahora.getMonth() + 1).padStart(2, "0");
+    const prefijoMesActual = `${anioActual}-${mesActualStr}`;
+
+    // 1. Servicio Estrella
+    const citasCompletadasEsteMes = citas.filter(
+      (c) => c.estado === "completada" && c.fecha_hora && c.fecha_hora.startsWith(prefijoMesActual)
+    );
+
+    const conteoServicios: Record<string, number> = {};
+    let servicioEstrella = "Ninguno";
+    let maxServicios = 0;
+
+    citasCompletadasEsteMes.forEach((c) => {
+      const t = c.tratamiento;
+      conteoServicios[t] = (conteoServicios[t] || 0) + 1;
+      if (conteoServicios[t] > maxServicios) {
+        maxServicios = conteoServicios[t];
+        servicioEstrella = t;
+      }
+    });
+
+    // 2. Día más Activo
+    const citasEsteMes = citas.filter(
+      (c) => c.fecha_hora && c.fecha_hora.startsWith(prefijoMesActual)
+    );
+
+    const conteoDias = Array(7).fill(0);
+    citasEsteMes.forEach((c) => {
+      const parts = c.fecha_hora.split("T")[0].split("-");
+      if (parts.length === 3) {
+        const dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        const diaIndex = dateObj.getDay();
+        if (!isNaN(diaIndex)) {
+          conteoDias[diaIndex]++;
+        }
+      }
+    });
+
+    let maxDias = 0;
+    let diaMasActivo = "Ninguno";
+    const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+    conteoDias.forEach((conteo, idx) => {
+      if (conteo > maxDias) {
+        maxDias = conteo;
+        diaMasActivo = diasSemana[idx];
+      }
+    });
+
+    // 3. Margen de Ganancia
+    const margenGanancia = ingresos > 0 ? Math.round(((ingresos - gastos) / ingresos) * 100) : 0;
+
+    return {
+      servicioEstrella,
+      maxServicios,
+      diaMasActivo,
+      maxDias,
+      margenGanancia,
+    };
+  }, [citas, ingresos, gastos]);
   const [notifStatus, setNotifStatus] = useState<NotificationPermission | "unsupported" | null>(null);
   const [saludo, setSaludo] = useState("¡Hola, Majo! ✨");
 
@@ -141,6 +209,66 @@ export default function Dashboard() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Sección de Insights */}
+      <div className="mt-8 mb-6">
+        <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground flex items-center gap-2 mb-4">
+          <Award className="h-5 w-5 text-primary" />
+          Análisis de Cabina ✨
+        </h2>
+        
+        <div className="grid grid-cols-1 gap-4">
+          {/* Card: Servicio Estrella */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-[#FDFBF7] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#F4EFE6] transition-all hover:shadow-[0_6px_24px_rgba(212,175,55,0.08)] active:scale-[0.99]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-primary uppercase tracking-wider">Servicio Estrella</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Star className="h-4.5 w-4.5 fill-current" />
+              </div>
+            </div>
+            <p className="text-lg font-bold text-foreground">
+              {loadingCitas ? "Cargando..." : insights.servicioEstrella}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              {loadingCitas ? "" : insights.maxServicios > 0 ? `${insights.maxServicios} citas completadas este mes` : "Sin citas registradas"}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Card: Día más Activo */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-[#FAFAFA] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#F5F5F5] transition-all active:scale-[0.99]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Día Activo</span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
+                  <Calendar className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <p className="text-base font-bold text-foreground">
+                {loadingCitas ? "..." : insights.diaMasActivo}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {loadingCitas ? "" : insights.maxDias > 0 ? `${insights.maxDias} agendadas` : "Sin datos"}
+              </p>
+            </div>
+
+            {/* Card: Margen de Ganancia */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-[#F6FCF8] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#E6F4EA] transition-all active:scale-[0.99]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-success uppercase tracking-wider">Margen Neto</span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-success/10 text-success">
+                  <Percent className="h-4.5 w-4.5" />
+                </div>
+              </div>
+              <p className="text-lg font-bold text-success">
+                {loading ? "..." : `${insights.margenGanancia}%`}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {loading ? "" : insights.margenGanancia >= 50 ? "¡Excelente rentabilidad! 🌟" : insights.margenGanancia > 0 ? "Margen operativo positivo" : "Aumenta tus ingresos 📈"}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <BottomSheet

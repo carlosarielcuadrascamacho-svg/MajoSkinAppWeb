@@ -12,6 +12,7 @@ import { db } from "@/lib/firebase";
 import { TRATAMIENTOS, ESTADOS_CITA, PRECIOS_SUGERIDOS } from "@/constants/citas";
 import { useToast } from "@/context/ToastContext";
 import { formatearMonto } from "@/lib/utils";
+import { useProductos } from "@/hooks/useProductos";
 import BottomSheet from "@/components/BottomSheet";
 import Input from "@/components/Input";
 import Select from "@/components/Select";
@@ -38,12 +39,14 @@ export default function CitaModal({
   onClose,
   citaEditando,
 }: CitaModalProps) {
+  const { productos } = useProductos();
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [tratamiento, setTratamiento] = useState("");
   const [fecha, setFecha] = useState("");
   const [notas, setNotas] = useState("");
   const [estado, setEstado] = useState("pendiente");
+  const [productoVendido, setProductoVendido] = useState("");
   const [guardando, setGuardando] = useState(false);
   const { showToast } = useToast();
 
@@ -57,6 +60,7 @@ export default function CitaModal({
       setFecha(citaEditando.fecha_hora);
       setNotas(citaEditando.notas ?? "");
       setEstado(citaEditando.estado);
+      setProductoVendido(citaEditando.productoVendidoId ?? "");
     } else {
       setNombre("");
       setTelefono("");
@@ -64,6 +68,7 @@ export default function CitaModal({
       setFecha("");
       setNotas("");
       setEstado("pendiente");
+      setProductoVendido("");
     }
   }, [citaEditando, isOpen]);
 
@@ -76,7 +81,10 @@ export default function CitaModal({
     setGuardando(true);
 
     try {
-      const data = {
+      const yaProcesada = citaEditando?.ventaProcesada || false;
+      const debeProcesarVenta = estado === "completada" && !yaProcesada;
+
+      const data: any = {
         cliente_nombre: nombre.trim(),
         cliente_telefono: telefono.trim(),
         tratamiento: tratamiento.trim(),
@@ -84,6 +92,11 @@ export default function CitaModal({
         notas: notas.trim(),
         estado,
       };
+
+      if (debeProcesarVenta) {
+        data.ventaProcesada = true;
+        data.productoVendidoId = productoVendido;
+      }
 
       if (citaEditando) {
         await updateDoc(doc(db, "citas", citaEditando.id), data);
@@ -95,6 +108,41 @@ export default function CitaModal({
           creadoEn: serverTimestamp(),
         });
         showToast("Cita guardada", "success");
+      }
+
+      // Procesar venta cruzada e ingresos de servicios automáticamente si aplica
+      if (debeProcesarVenta) {
+        // 1. Registrar servicio en Finanzas
+        const precioServicio = PRECIOS_SUGERIDOS[tratamiento.trim()] || 0;
+        if (precioServicio > 0) {
+          await addDoc(collection(db, "transacciones"), {
+            tipo: "ingreso",
+            descripcion: `Servicio: ${tratamiento.trim()} (${nombre.trim()})`,
+            monto: precioServicio,
+            categoria: "Servicios",
+            creadoEn: serverTimestamp(),
+          });
+        }
+
+        // 2. Registrar producto vendido en Finanzas y restar stock del Inventario
+        if (productoVendido) {
+          const prodObj = productos.find((p) => p.id === productoVendido);
+          if (prodObj) {
+            // Registrar ingreso de venta de producto
+            await addDoc(collection(db, "transacciones"), {
+              tipo: "ingreso",
+              descripcion: `Venta: ${prodObj.nombre} (Apoyo en casa - ${nombre.trim()})`,
+              monto: prodObj.precio_venta,
+              categoria: "Venta de Productos",
+              creadoEn: serverTimestamp(),
+            });
+
+            // Restar 1 unidad al stock
+            await updateDoc(doc(db, "productos", prodObj.id), {
+              stock: Math.max(0, prodObj.stock - 1),
+            });
+          }
+        }
       }
 
       onClose();
@@ -177,6 +225,21 @@ export default function CitaModal({
             </option>
           ))}
         </Select>
+
+        {estado === "completada" && (!citaEditando || !citaEditando.ventaProcesada) && (
+          <Select
+            label="¿Vendió algún producto de apoyo en casa? (Opcional)"
+            value={productoVendido}
+            onChange={(e) => setProductoVendido(e.target.value)}
+          >
+            <option value="">Ninguno</option>
+            {productos.map((p) => (
+              <option key={p.id} value={p.id} disabled={p.stock <= 0}>
+                {p.nombre} ({p.stock > 0 ? `${p.stock} disp.` : "Sin stock"}) - {formatearMonto(p.precio_venta)}
+              </option>
+            ))}
+          </Select>
+        )}
 
         <Textarea
           label="Notas (opcional)"
