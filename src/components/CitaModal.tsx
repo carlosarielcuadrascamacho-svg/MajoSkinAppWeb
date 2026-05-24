@@ -9,8 +9,9 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { TRATAMIENTOS, ESTADOS_CITA } from "@/constants/citas";
+import { TRATAMIENTOS, ESTADOS_CITA, PRECIOS_SUGERIDOS } from "@/constants/citas";
 import { useToast } from "@/context/ToastContext";
+import { formatearMonto } from "@/lib/utils";
 import BottomSheet from "@/components/BottomSheet";
 import Input from "@/components/Input";
 import Select from "@/components/Select";
@@ -119,6 +120,12 @@ export default function CitaModal({
             </option>
           ))}
         </Select>
+
+        {PRECIOS_SUGERIDOS[tratamiento] && (
+          <p className="-mt-2 ml-4 text-xs text-success">
+            Precio sugerido: {formatearMonto(PRECIOS_SUGERIDOS[tratamiento])}
+          </p>
+        )}
 
         <Input
           label="Fecha y hora"

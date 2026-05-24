@@ -15,6 +15,21 @@ export const TRATAMIENTOS = [
   "Otro",
 ] as const;
 
+export const PRECIOS_SUGERIDOS: Record<string, number> = {
+  "Limpieza Facial Profunda": 300,
+  "Depilación Piernas Completas": 300,
+  "Depilación 1/2 Piernas": 250,
+  "Depilación Brazos Completos": 200,
+  "Depilación Patillas": 60,
+  "Depilación Bozo (Bigote)": 50,
+  "Depilación Axilas": 150,
+  "Laminado + Diseño con Cera (Cejas)": 180,
+  "Laminado + Diseño con Pinzas (Cejas)": 150,
+  "Diseño de Cejas (Pinzas)": 80,
+  "Diseño de Cejas (Cera)": 100,
+  "Laminado de Cejas": 100,
+};
+
 export const ESTADOS_CITA = ["pendiente", "completada", "cancelada"] as const;
 
 export const BADGE_COLOR: Record<string, string> = {

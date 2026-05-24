@@ -50,11 +50,13 @@ export default function FinanzasPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editando, setEditando] = useState<Transaccion | null>(null);
   const [eliminando, setEliminando] = useState<Transaccion | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [mesActual, setMesActual] = useState(() => new Date());
   const { showToast } = useToast();
 
   const handleEliminar = async () => {
     if (!eliminando) return;
+    setEliminandoId(eliminando.id);
     try {
       await deleteDoc(doc(db, "transacciones", eliminando.id));
       showToast("Transacción eliminada", "success");
@@ -62,6 +64,7 @@ export default function FinanzasPage() {
       showToast("Error al eliminar la transacción", "error");
     }
     setEliminando(null);
+    setEliminandoId(null);
   };
 
   const abrirEditar = (t: Transaccion) => {
@@ -218,8 +221,9 @@ export default function FinanzasPage() {
                           e.stopPropagation();
                           setEliminando(t);
                         }}
+                        disabled={eliminandoId === t.id}
                         aria-label="Eliminar transacción"
-                        className="flex h-7 w-7 items-center justify-center rounded-full bg-danger/10 text-danger transition-all active:scale-90"
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-danger/10 text-danger transition-all active:scale-90 disabled:opacity-40"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -249,10 +253,13 @@ export default function FinanzasPage() {
 
       <ConfirmDialog
         isOpen={!!eliminando}
-        onClose={() => setEliminando(null)}
+        onClose={() => {
+          if (!eliminandoId) setEliminando(null);
+        }}
         onConfirm={handleEliminar}
         title="Eliminar transacción"
         message={`¿Eliminar "${eliminando?.descripcion ?? ""}"? Esta acción no se puede deshacer.`}
+        loading={!!eliminandoId}
       />
     </div>
   );

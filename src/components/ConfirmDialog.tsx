@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   onConfirm: () => Promise<void> | void;
   title: string;
   message: string;
+  loading?: boolean;
 }
 
 export default function ConfirmDialog({
@@ -17,15 +18,17 @@ export default function ConfirmDialog({
   onConfirm,
   title,
   message,
+  loading: externalLoading,
 }: ConfirmDialogProps) {
-  const [loading, setLoading] = useState(false);
+  const [internalLoading, setInternalLoading] = useState(false);
+  const loading = externalLoading || internalLoading;
 
   const handleConfirm = async () => {
-    setLoading(true);
+    setInternalLoading(true);
     try {
       await onConfirm();
     } finally {
-      setLoading(false);
+      setInternalLoading(false);
       onClose();
     }
   };

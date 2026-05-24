@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Clock, Trash2, Download } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Clock, Trash2, Download, Search } from "lucide-react";
 import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useCitas } from "@/hooks/useCitas";
@@ -62,11 +62,24 @@ export default function CitasPage() {
   const { citas, loading } = useCitas();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [citaEditando, setCitaEditando] = useState<Cita | null>(null);
+  const [busqueda, setBusqueda] = useState("");
   const [eliminando, setEliminando] = useState<Cita | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  const filtradas = useMemo(
+    () =>
+      busqueda.trim()
+        ? citas.filter((c) =>
+            c.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase().trim())
+          )
+        : citas,
+    [citas, busqueda]
+  );
 
   const handleEliminar = async () => {
     if (!eliminando) return;
+    setEliminandoId(eliminando.id);
     try {
       await deleteDoc(doc(db, "citas", eliminando.id));
       showToast("Cita eliminada", "success");
@@ -74,6 +87,7 @@ export default function CitasPage() {
       showToast("Error al eliminar la cita", "error");
     }
     setEliminando(null);
+    setEliminandoId(null);
   };
 
   const abrirEditar = (cita: Cita) => {
@@ -87,7 +101,7 @@ export default function CitasPage() {
   };
 
   const citasAgrupadas: Record<string, Cita[]> = {};
-  citas.forEach((cita) => {
+  filtradas.forEach((cita) => {
     const grupo = obtenerGrupo(cita.fecha_hora);
     if (!citasAgrupadas[grupo]) citasAgrupadas[grupo] = [];
     citasAgrupadas[grupo].push(cita);
@@ -113,11 +127,30 @@ export default function CitasPage() {
           )}
         </div>
 
+        {!loading && (
+          <div className="relative mb-4">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre..."
+              aria-label="Buscar citas por nombre de clienta"
+              className="w-full rounded-full border border-[#E5E5E5] bg-white py-2.5 pl-11 pr-5 text-sm transition placeholder:text-gray-300 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            />
+          </div>
+        )}
+
         {loading ? (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-24 w-full" />
             ))}
+          </div>
+        ) : filtradas.length === 0 && busqueda.trim() ? (
+          <div className="mt-20 flex flex-col items-center gap-3">
+            <Search className="h-10 w-10 text-gray-300" />
+            <p className="text-sm text-gray-400">Sin resultados para "{busqueda}"</p>
           </div>
         ) : citas.length === 0 ? (
           <div className="mt-20 flex flex-col items-center gap-3">
@@ -143,8 +176,9 @@ export default function CitasPage() {
                           e.stopPropagation();
                           setEliminando(cita);
                         }}
+                        disabled={eliminandoId === cita.id}
                         aria-label="Eliminar cita"
-                        className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-danger/10 text-danger transition-all active:scale-90"
+                        className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-danger/10 text-danger transition-all active:scale-90 disabled:opacity-40"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -190,10 +224,13 @@ export default function CitasPage() {
 
       <ConfirmDialog
         isOpen={!!eliminando}
-        onClose={() => setEliminando(null)}
+        onClose={() => {
+          if (!eliminandoId) setEliminando(null);
+        }}
         onConfirm={handleEliminar}
         title="Eliminar cita"
         message={`¿Eliminar la cita de ${eliminando?.cliente_nombre ?? ""}? Esta acción no se puede deshacer.`}
+        loading={!!eliminandoId}
       />
     </div>
   );

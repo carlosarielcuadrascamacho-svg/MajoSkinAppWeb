@@ -44,62 +44,62 @@ export async function POST(req: NextRequest) {
     const messaging = getAdminMessaging();
 
     const tokensSnap = await db.collection("fcmTokens").get();
-  const tokens: string[] = [];
-  tokensSnap.forEach((d) => {
-    const t = d.data().token;
-    if (t) tokens.push(t);
-  });
+    const tokens: string[] = [];
+    tokensSnap.forEach((d) => {
+      const t = d.data().token;
+      if (t) tokens.push(t);
+    });
 
-  if (tokens.length === 0) {
-    return NextResponse.json({ enviados: 0 });
-  }
-
-  const citasSnap = await db
-    .collection("citas")
-    .where("estado", "==", "pendiente")
-    .get();
-
-  const ahora = Date.now();
-  let enviados = 0;
-
-  for (const doc of citasSnap.docs) {
-    const cita = doc.data();
-    if (!cita.fecha_hora) continue;
-
-    const citaDate = new Date(cita.fecha_hora).getTime();
-    if (isNaN(citaDate)) continue;
-
-    const diffMs = citaDate - ahora;
-    const recordatorios = cita.recordatorios ?? {};
-
-    for (const intervalo of INTERVALOS) {
-      if (recordatorios[intervalo.key]) continue;
-
-      const diffTarget = Math.abs(diffMs - intervalo.ms);
-      if (diffTarget > TOLERANCIA_MS) continue;
-
-      const messages = tokens.map((token) => ({
-        notification: {
-          title: `⏰ ${cita.cliente_nombre || "Cita"} en ${intervalo.label}`,
-          body: `${cita.cliente_nombre || "Clienta"} - ${cita.tratamiento || "Sin tratamiento"}`,
-        },
-        token,
-      }));
-
-      try {
-        const resp = await messaging.sendEach(messages);
-        enviados += resp.successCount;
-      } catch {
-        continue;
-      }
-
-      await doc.ref.update({
-        [`recordatorios.${intervalo.key}`]: true,
-      });
+    if (tokens.length === 0) {
+      return NextResponse.json({ enviados: 0 });
     }
-  }
 
-  return NextResponse.json({ enviados });
+    const citasSnap = await db
+      .collection("citas")
+      .where("estado", "==", "pendiente")
+      .get();
+
+    const ahora = Date.now();
+    let enviados = 0;
+
+    for (const doc of citasSnap.docs) {
+      const cita = doc.data();
+      if (!cita.fecha_hora) continue;
+
+      const citaDate = new Date(cita.fecha_hora).getTime();
+      if (isNaN(citaDate)) continue;
+
+      const diffMs = citaDate - ahora;
+      const recordatorios = cita.recordatorios ?? {};
+
+      for (const intervalo of INTERVALOS) {
+        if (recordatorios[intervalo.key]) continue;
+
+        const diffTarget = Math.abs(diffMs - intervalo.ms);
+        if (diffTarget > TOLERANCIA_MS) continue;
+
+        const messages = tokens.map((token) => ({
+          notification: {
+            title: `⏰ ${cita.cliente_nombre || "Cita"} en ${intervalo.label}`,
+            body: `${cita.cliente_nombre || "Clienta"} - ${cita.tratamiento || "Sin tratamiento"}`,
+          },
+          token,
+        }));
+
+        try {
+          const resp = await messaging.sendEach(messages);
+          enviados += resp.successCount;
+        } catch {
+          continue;
+        }
+
+        await doc.ref.update({
+          [`recordatorios.${intervalo.key}`]: true,
+        });
+      }
+    }
+
+    return NextResponse.json({ enviados });
   } catch (err) {
     const mensaje = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: mensaje }, { status: 500 });

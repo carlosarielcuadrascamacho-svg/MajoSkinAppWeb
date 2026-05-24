@@ -5,10 +5,11 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   doc,
   setDoc,
   updateDoc,
+  type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -26,12 +27,12 @@ const INTERVALOS = [
 ];
 
 const TOLERANCIA_MS = 5 * 60 * 1000;
-const CHECK_INTERVAL = 60_000;
 
 export default function NotificationManager() {
   const { currentUser, loading } = useAuth();
   const { showToast } = useToast();
   const unsubRef = useRef<(() => void) | null>(null);
+  const recordatoriosRef = useRef<Unsubscribe | null>(null);
 
   useEffect(() => {
     if (loading || !currentUser) return;
@@ -65,50 +66,49 @@ export default function NotificationManager() {
   useEffect(() => {
     if (!currentUser) return;
 
-    const revisarRecordatorios = async () => {
-      try {
-        const q = query(
-          collection(db, "citas"),
-          where("estado", "==", "pendiente")
-        );
-        const snap = await getDocs(q);
-        const ahora = Date.now();
+    const q = query(
+      collection(db, "citas"),
+      where("estado", "==", "pendiente")
+    );
 
-        for (const d of snap.docs) {
-          const cita = d.data();
-          if (!cita.fecha_hora) continue;
+    recordatoriosRef.current = onSnapshot(q, (snap) => {
+      const ahora = Date.now();
 
-          const citaDate = new Date(cita.fecha_hora).getTime();
-          if (isNaN(citaDate)) continue;
+      for (const d of snap.docs) {
+        const cita = d.data();
+        if (!cita.fecha_hora) continue;
 
-          const diffMs = citaDate - ahora;
-          const recordatorios = cita.recordatorios ?? {};
+        const citaDate = new Date(cita.fecha_hora).getTime();
+        if (isNaN(citaDate)) continue;
 
-          for (const intervalo of INTERVALOS) {
-            if (recordatorios[intervalo.key]) continue;
-            if (diffMs <= 0) continue;
+        const diffMs = citaDate - ahora;
+        const recordatorios = cita.recordatorios ?? {};
 
-            const diffTarget = Math.abs(diffMs - intervalo.ms);
-            if (diffTarget > TOLERANCIA_MS) continue;
+        for (const intervalo of INTERVALOS) {
+          if (recordatorios[intervalo.key]) continue;
+          if (diffMs <= 0) continue;
 
-            showToast(
-              `⏰ ${cita.cliente_nombre || "Cita"} en ${intervalo.label}`,
-              "success"
-            );
+          const diffTarget = Math.abs(diffMs - intervalo.ms);
+          if (diffTarget > TOLERANCIA_MS) continue;
 
-            await updateDoc(doc(db, "citas", d.id), {
-              [`recordatorios.${intervalo.key}`]: true,
-            });
-          }
+          showToast(
+            `⏰ ${cita.cliente_nombre || "Cita"} en ${intervalo.label}`,
+            "success"
+          );
+
+          updateDoc(doc(db, "citas", d.id), {
+            [`recordatorios.${intervalo.key}`]: true,
+          });
         }
-      } catch {
-        /* silencioso */
+      }
+    });
+
+    return () => {
+      if (recordatoriosRef.current) {
+        recordatoriosRef.current();
+        recordatoriosRef.current = null;
       }
     };
-
-    revisarRecordatorios();
-    const id = setInterval(revisarRecordatorios, CHECK_INTERVAL);
-    return () => clearInterval(id);
   }, [currentUser, showToast]);
 
   return null;

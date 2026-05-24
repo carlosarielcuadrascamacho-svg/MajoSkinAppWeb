@@ -24,8 +24,6 @@ try {
 
   const messaging = firebase.messaging();
 
-  const messaging = firebase.messaging();
-
   messaging.onBackgroundMessage((payload) => {
     const notificationTitle = payload.notification?.title || "MajoAdmin";
     const notificationOptions = {
