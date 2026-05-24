@@ -9,9 +9,23 @@ const INTERVALOS = [
 const TOLERANCIA_MS = 30 * 60 * 1000;
 
 export async function GET() {
+  let sa_parseable = false;
+  let sa_error = "";
+  try {
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (raw) {
+      JSON.parse(raw);
+      sa_parseable = true;
+    }
+  } catch (e) {
+    sa_error = String(e);
+  }
+
   const checks = {
     cron_secret: !!process.env.CRON_SECRET,
     service_account: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+    sa_parseable,
+    sa_error,
   };
   return NextResponse.json({ status: "ok", ...checks });
 }
