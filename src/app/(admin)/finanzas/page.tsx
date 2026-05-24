@@ -529,8 +529,8 @@ export default function FinanzasPage() {
 
                 {filtradas.length === 0 ? (
                   <div className="mt-10 flex flex-col items-center gap-3">
-                    <Wallet className="h-10 w-10 text-gray-300" />
-                    <p className="text-sm text-gray-400">
+                    <Wallet className="h-10 w-10 text-muted" />
+                    <p className="text-sm text-muted">
                       Sin movimientos en {vista === "año" ? enfoque.getFullYear() : tituloVista(vista, enfoque)}
                     </p>
                   </div>
@@ -540,13 +540,13 @@ export default function FinanzasPage() {
                       <div
                         key={t.id}
                         onClick={() => abrirEditar(t)}
-                        className="flex items-start justify-between rounded-3xl bg-white px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-[#FAFAFA] transition-all active:scale-[0.98]"
+                        className="flex items-start justify-between rounded-3xl bg-card border border-border px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all active:scale-[0.98] text-foreground"
                       >
                         <div>
                           <p className="text-sm font-medium text-foreground">
                             {t.descripcion}
                           </p>
-                          <p className="mt-0.5 text-xs text-gray-400">
+                          <p className="mt-0.5 text-xs text-muted">
                             {t.tipo === "ingreso" ? "Ingreso" : "Gasto"} • {t.categoria || "Otros"}
                           </p>
                         </div>
@@ -593,8 +593,8 @@ export default function FinanzasPage() {
               </div>
             ) : productos.length === 0 ? (
               <div className="mt-20 flex flex-col items-center gap-3">
-                <Package className="h-10 w-10 text-gray-300" />
-                <p className="text-sm text-gray-400">Sin productos en Inventario</p>
+                <Package className="h-10 w-10 text-muted" />
+                <p className="text-sm text-muted">Sin productos en Inventario</p>
                 <button
                   onClick={() => setIsProdModalOpen(true)}
                   className="mt-2 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-white shadow-md active:scale-95"
@@ -604,13 +604,26 @@ export default function FinanzasPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-3 pb-24">
+                <button
+                  onClick={() => {
+                    if (typeof navigator !== "undefined" && navigator.vibrate) {
+                      navigator.vibrate(20);
+                    }
+                    setIsRestockOpen(true);
+                  }}
+                  className="mb-2 flex w-full items-center justify-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-6 py-3 text-sm font-semibold text-primary transition-all active:scale-95"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  Lista de Compras Inteligente 🛒
+                </button>
                 {productos.map((p) => {
                   const bajoStock = p.stock <= p.stock_minimo;
+                  const pred = prediccionesInventario[p.id] || { diaria: 0, diasRestantes: "Estable" };
                   return (
                     <div
                       key={p.id}
                       onClick={() => abrirEditarProducto(p)}
-                      className="relative rounded-3xl bg-white px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-[#FAFAFA] transition-all active:scale-[0.98]"
+                      className="relative rounded-3xl bg-card border border-border px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all active:scale-[0.98] text-foreground"
                     >
                       <div className="absolute right-4 top-4 flex gap-1">
                         <button
@@ -622,7 +635,7 @@ export default function FinanzasPage() {
                             abrirEditarProducto(p);
                           }}
                           aria-label="Editar producto"
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-all active:scale-90"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-border text-muted transition-all active:scale-90"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
@@ -657,10 +670,15 @@ export default function FinanzasPage() {
                           >
                             {bajoStock ? `⚠️ Bajo Stock: ${p.stock} pz` : `Stock: ${p.stock} pz`}
                           </span>
+                          {pred.diaria > 0 && (
+                            <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-500">
+                              ⏱️ Restan: ~{pred.diasRestantes} días
+                            </span>
+                          )}
                           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-medium text-primary">
                             Costo: {formatearMonto(p.precio_costo)}
                           </span>
-                          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500">
+                          <span className="rounded-full bg-border px-2.5 py-0.5 text-[10px] font-medium text-muted">
                             Venta: {formatearMonto(p.precio_venta)}
                           </span>
                         </div>
