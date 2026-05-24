@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Bell, BellOff, Calendar, TrendingUp, DollarSign, Settings, Download, Award, Star, Percent } from "lucide-react";
+import { Bell, BellOff, Calendar, TrendingUp, DollarSign, Settings, Download, Award, Star, Percent, Sun, Moon } from "lucide-react";
 import { useDashboardResumen } from "@/hooks/useDashboardResumen";
 import { useCitas } from "@/hooks/useCitas";
 import { useTransacciones } from "@/hooks/useTransacciones";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -19,6 +20,7 @@ import OfflineIndicator from "@/components/OfflineIndicator";
 import Skeleton from "@/components/Skeleton";
 
 export default function Dashboard() {
+  const { theme, toggleTheme } = useTheme();
   const { citasCount, ingresos, gastos, loading } = useDashboardResumen();
   const { citas, loading: loadingCitas } = useCitas();
   const { transacciones, loading: loadingTransacciones } = useTransacciones();
@@ -162,7 +164,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="flex min-h-full flex-col bg-background px-6 pt-8">
+    <div className="flex min-h-full flex-col bg-background px-6 pt-8 pb-24 text-foreground">
       <OfflineIndicator />
 
       <div className="mb-6 flex items-center justify-between">
@@ -170,27 +172,40 @@ export default function Dashboard() {
           <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground">
             {saludo}
           </h1>
-          <p className="text-sm text-gray-400 mt-0.5">MajoSkin • Control de Cabina</p>
+          <p className="text-sm text-muted mt-0.5">MajoSkin • Control de Cabina</p>
         </div>
-        <button
-          onClick={() => {
-            if (typeof navigator !== "undefined" && navigator.vibrate) {
-              navigator.vibrate(20);
-            }
-            setShowSettings(true);
-          }}
-          aria-label="Abrir ajustes"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-[#FAFAFA] transition-all active:scale-90"
-        >
-          <Settings className="h-5 w-5 text-gray-400" />
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={toggleTheme}
+            aria-label="Cambiar tema"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-card shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-border transition-all active:scale-90"
+          >
+            {theme === "light" ? (
+              <Moon className="h-5 w-5 text-gray-400" />
+            ) : (
+              <Sun className="h-5 w-5 text-amber-400" />
+            )}
+          </button>
+          <button
+            onClick={() => {
+              if (typeof navigator !== "undefined" && navigator.vibrate) {
+                navigator.vibrate(20);
+              }
+              setShowSettings(true);
+            }}
+            aria-label="Abrir ajustes"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-card shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-border transition-all active:scale-90"
+          >
+            <Settings className="h-5 w-5 text-muted" />
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4">
         {cards.map(({ label, value, icon: Icon, iconBg, iconColor }) => (
           <div
             key={label}
-            className="flex items-center gap-4 rounded-3xl bg-white px-5 py-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-[0.98]"
+            className="flex items-center gap-4 rounded-3xl bg-card border border-border px-5 py-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all active:scale-[0.98]"
           >
             <div
               className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconBg}`}
@@ -198,7 +213,7 @@ export default function Dashboard() {
               <Icon className={`h-6 w-6 ${iconColor}`} />
             </div>
             <div>
-              <p className="text-xs text-gray-400">{label}</p>
+              <p className="text-xs text-muted">{label}</p>
               {loading ? (
                 <Skeleton className="mt-1 h-5 w-24" />
               ) : (
@@ -220,7 +235,7 @@ export default function Dashboard() {
         
         <div className="grid grid-cols-1 gap-4">
           {/* Card: Servicio Estrella */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-[#FDFBF7] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#F4EFE6] transition-all hover:shadow-[0_6px_24px_rgba(212,175,55,0.08)] active:scale-[0.99]">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-[#FDFBF7] dark:from-[#1c1a16] dark:to-[#151310] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#F4EFE6] dark:border-[#2a2419] transition-all hover:shadow-[0_6px_24px_rgba(212,175,55,0.08)] active:scale-[0.99]">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-primary uppercase tracking-wider">Servicio Estrella</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -230,30 +245,30 @@ export default function Dashboard() {
             <p className="text-lg font-bold text-foreground">
               {loadingCitas ? "Cargando..." : insights.servicioEstrella}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-muted mt-1">
               {loadingCitas ? "" : insights.maxServicios > 0 ? `${insights.maxServicios} citas completadas este mes` : "Sin citas registradas"}
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             {/* Card: Día más Activo */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-[#FAFAFA] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#F5F5F5] transition-all active:scale-[0.99]">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-[#FAFAFA] dark:from-[#171716] dark:to-[#151514] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#F5F5F5] dark:border-border transition-all active:scale-[0.99]">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Día Activo</span>
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
+                <span className="text-xs font-semibold text-muted uppercase tracking-wider">Día Activo</span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 dark:bg-[#222221] text-gray-500">
                   <Calendar className="h-4.5 w-4.5" />
                 </div>
               </div>
               <p className="text-base font-bold text-foreground">
                 {loadingCitas ? "..." : insights.diaMasActivo}
               </p>
-              <p className="text-[10px] text-gray-400 mt-1">
+              <p className="text-[10px] text-muted mt-1">
                 {loadingCitas ? "" : insights.maxDias > 0 ? `${insights.maxDias} agendadas` : "Sin datos"}
               </p>
             </div>
 
             {/* Card: Margen de Ganancia */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-[#F6FCF8] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#E6F4EA] transition-all active:scale-[0.99]">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-[#F6FCF8] dark:from-[#131916] dark:to-[#101513] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#E6F4EA] dark:border-[#1e2a22] transition-all active:scale-[0.99]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-success uppercase tracking-wider">Margen Neto</span>
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-success/10 text-success">
@@ -263,7 +278,7 @@ export default function Dashboard() {
               <p className="text-lg font-bold text-success">
                 {loading ? "..." : `${insights.margenGanancia}%`}
               </p>
-              <p className="text-[10px] text-gray-400 mt-1">
+              <p className="text-[10px] text-muted mt-1">
                 {loading ? "" : insights.margenGanancia >= 50 ? "¡Excelente rentabilidad! 🌟" : insights.margenGanancia > 0 ? "Margen operativo positivo" : "Aumenta tus ingresos 📈"}
               </p>
             </div>
@@ -277,21 +292,21 @@ export default function Dashboard() {
         title="Ajustes"
       >
         <div className="mb-4">
-          <p className="mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">
+          <p className="mb-2 text-xs font-medium text-muted uppercase tracking-wider">
             Notificaciones
           </p>
-          <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
+          <div className="flex items-center justify-between rounded-2xl bg-border/30 dark:bg-border/20 px-4 py-3 border border-border">
             <div className="flex items-center gap-3">
               {notifStatus === "granted" ? (
                 <Bell className="h-5 w-5 text-success" />
               ) : (
-                <BellOff className="h-5 w-5 text-gray-400" />
+                <BellOff className="h-5 w-5 text-muted" />
               )}
               <div>
                 <p className="text-sm font-medium text-foreground">
                   {notifStatus === "granted" ? "Activadas" : notifStatus === "denied" ? "Bloqueadas" : notifStatus === "unsupported" ? "No soportado" : "Inactivas"}
                 </p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted">
                   {notifStatus === "granted"
                     ? "Recibirás avisos importantes"
                     : notifStatus === "denied"

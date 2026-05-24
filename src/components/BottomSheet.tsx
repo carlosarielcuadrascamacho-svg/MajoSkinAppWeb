@@ -41,7 +41,7 @@ export default function BottomSheet({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-lg rounded-t-3xl bg-white shadow-xl outline-none"
+            className="relative w-full max-w-lg rounded-t-3xl bg-card border-t border-card-border shadow-xl outline-none text-foreground"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -53,9 +53,9 @@ export default function BottomSheet({
             >
               {title && (
                 <div className="mb-6 flex items-center justify-between">
-                  <h2 className="font-serif text-lg font-semibold">{title}</h2>
+                  <h2 className="font-serif text-lg font-semibold text-foreground">{title}</h2>
                   <button onClick={onClose} aria-label="Cerrar">
-                    <X className="h-5 w-5 text-gray-400" />
+                    <X className="h-5 w-5 text-muted" />
                   </button>
                 </div>
               )}

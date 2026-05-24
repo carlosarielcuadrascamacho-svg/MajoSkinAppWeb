@@ -1,11 +1,44 @@
 @import "tailwindcss";
 
+:root {
+  --background: #fdfbf7;
+  --foreground: #4a4a4a;
+  --card-bg: #ffffff;
+  --border-color: #fafafa;
+  --card-border: #f4efe6;
+  --text-muted: #9ca3af;
+  --input-bg: #ffffff;
+  --input-border: #e5e5e5;
+  --skeleton-bg: #f5f5f5;
+  --divider-color: #f5f5f5;
+}
+
+html.dark {
+  --background: #0d0d0c; /* Obsidian black */
+  --foreground: #e5e5e3; /* Soft platinum white */
+  --card-bg: #151514;    /* Matte Obsidian dark card */
+  --border-color: #1d1d1c;
+  --card-border: #28231c; /* Bronze/Gold hue border */
+  --text-muted: #8e8e8e;
+  --input-bg: #1c1c1b;
+  --input-border: #333331;
+  --skeleton-bg: #222221;
+  --divider-color: #1a1a19;
+}
+
 @theme inline {
-  --color-background: #fdfbf7;
-  --color-foreground: #4a4a4a;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
   --color-primary: #8b6f40;
   --color-success: #557467;
   --color-danger: #a35e5e;
+  --color-card: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-border: var(--border-color);
+  --color-muted: var(--text-muted);
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
+  --color-divider: var(--divider-color);
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
 }

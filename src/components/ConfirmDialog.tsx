@@ -35,12 +35,12 @@ export default function ConfirmDialog({
 
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title={title}>
-      <p className="mb-6 text-sm text-gray-500">{message}</p>
+      <p className="mb-6 text-sm text-muted">{message}</p>
       <div className="flex gap-3 pb-safe">
         <button
           onClick={onClose}
           disabled={loading}
-          className="flex-1 rounded-full bg-gray-100 py-3 text-sm font-semibold text-gray-500 transition-all active:scale-95 disabled:opacity-60"
+          className="flex-1 rounded-full bg-border py-3 text-sm font-semibold text-foreground transition-all active:scale-95 disabled:opacity-60"
         >
           Cancelar
         </button>

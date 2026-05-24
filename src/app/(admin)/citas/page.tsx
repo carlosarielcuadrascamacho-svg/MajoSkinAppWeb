@@ -149,7 +149,7 @@ export default function CitasPage() {
   });
 
   return (
-    <div className="flex min-h-full flex-col bg-background">
+    <div className="flex min-h-full flex-col bg-background text-foreground pb-24">
       <OfflineIndicator />
 
       <div className="flex-1 px-6 pt-8">
@@ -161,23 +161,23 @@ export default function CitasPage() {
             <button
               onClick={() => exportarCitas(citas)}
               aria-label="Exportar citas a CSV"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-card border border-border shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all active:scale-90"
             >
-              <Download className="h-5 w-5 text-gray-400" />
+              <Download className="h-5 w-5 text-muted" />
             </button>
           )}
         </div>
 
         {!loading && (
           <div className="relative mb-4">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <input
               type="text"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre..."
               aria-label="Buscar citas por nombre de clienta"
-              className="w-full rounded-full border border-[#E5E5E5] bg-white py-2.5 pl-11 pr-5 text-sm transition placeholder:text-gray-300 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="w-full rounded-full border border-input-border bg-input-bg text-foreground py-2.5 pl-11 pr-5 text-sm transition placeholder:text-muted/60 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             />
           </div>
         )}
@@ -214,7 +214,7 @@ export default function CitasPage() {
                 className={`flex flex-col items-center justify-center rounded-2xl min-w-[54px] py-3 text-xs font-semibold transition-all shadow-[0_4px_20px_rgba(0,0,0,0.02)] ${
                   diaFiltro === null
                     ? "bg-primary text-white shadow-md shadow-primary/20 scale-105"
-                    : "bg-white text-gray-400 border border-[#F5F5F5] active:scale-95"
+                    : "bg-card text-muted border border-border active:scale-95"
                 }`}
               >
                 <span>Todo</span>
@@ -239,7 +239,7 @@ export default function CitasPage() {
                     className={`flex flex-col items-center justify-center rounded-2xl min-w-[54px] py-3 text-xs font-semibold transition-all shadow-[0_4px_20px_rgba(0,0,0,0.02)] ${
                       active
                         ? "bg-primary text-white shadow-md shadow-primary/20 scale-105"
-                        : "bg-white text-gray-400 border border-[#F5F5F5] active:scale-95"
+                        : "bg-card text-muted border border-border active:scale-95"
                     }`}
                   >
                     <span className="opacity-80">{d.nombre}</span>
@@ -271,7 +271,7 @@ export default function CitasPage() {
           <div className="flex flex-col gap-6 pb-4">
             {Object.entries(citasAgrupadas).map(([grupo, citasGrupo]) => (
               <div key={grupo}>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
                   {grupo}
                 </p>
                 <div className="flex flex-col gap-3">
@@ -279,7 +279,7 @@ export default function CitasPage() {
                     <div
                       key={cita.id}
                       onClick={() => abrirEditar(cita)}
-                      className="relative rounded-3xl bg-white px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-[0.98]"
+                      className="relative rounded-3xl bg-card border border-border px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all active:scale-[0.98] text-foreground"
                     >
                       <button
                         onClick={(e) => {
@@ -311,7 +311,7 @@ export default function CitasPage() {
                         className={`absolute right-14 top-4 flex h-8 w-8 items-center justify-center rounded-full transition-all active:scale-90 ${
                           cita.cliente_telefono 
                             ? "bg-success/10 text-success hover:bg-success/20" 
-                            : "bg-gray-100 text-gray-300 hover:bg-gray-200"
+                            : "bg-border text-muted/40 hover:bg-border/60"
                         }`}
                       >
                         <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
@@ -328,10 +328,10 @@ export default function CitasPage() {
                           {cita.estado}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-sm text-primary">
+                      <p className="mt-0.5 text-sm text-primary font-medium">
                         {cita.tratamiento}
                       </p>
-                      <p className="mt-1 text-xs text-gray-400">
+                      <p className="mt-1 text-xs text-muted">
                         {formatearFecha(cita.fecha_hora)}
                       </p>
                     </div>

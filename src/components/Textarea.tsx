@@ -15,7 +15,7 @@ export default function Textarea({ label, id, className = "", ...props }: Textar
       )}
       <textarea
         id={textareaId}
-        className={`resize-none rounded-3xl border border-[#E5E5E5] bg-white px-5 py-3 text-base transition focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${className}`}
+        className={`w-full resize-none rounded-3xl border border-input-border bg-input-bg text-foreground px-5 py-3 text-base transition focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${className}`}
         {...props}
       />
     </div>

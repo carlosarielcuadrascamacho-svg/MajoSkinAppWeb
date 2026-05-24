@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
   Wallet,
@@ -10,16 +10,23 @@ import {
   ChevronRight,
   Edit2,
   Package,
+  Share2,
+  ShoppingBag,
+  TrendingUp,
+  Calendar,
+  AlertTriangle,
 } from "lucide-react";
 import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useTransacciones } from "@/hooks/useTransacciones";
 import { useProductos } from "@/hooks/useProductos";
+import { useCitas } from "@/hooks/useCitas";
 import TransaccionModal from "@/components/TransaccionModal";
 import ProductoModal from "@/components/ProductoModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import Skeleton from "@/components/Skeleton";
+import BottomSheet from "@/components/BottomSheet";
 import { useToast } from "@/context/ToastContext";
 import { formatearMonto } from "@/lib/utils";
 import { descargarCSV } from "@/lib/csv";
@@ -122,10 +129,12 @@ function exportarTransacciones(transacciones: Transaccion[]) {
 export default function FinanzasPage() {
   const { transacciones, loading } = useTransacciones();
   const { productos, loading: loadingProductos } = useProductos();
+  const { citas } = useCitas();
   
   const [seccion, setSeccion] = useState<"movimientos" | "inventario">("movimientos");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProdModalOpen, setIsProdModalOpen] = useState(false);
+  const [isRestockOpen, setIsRestockOpen] = useState(false);
   const [editando, setEditando] = useState<Transaccion | null>(null);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   const [eliminando, setEliminando] = useState<Transaccion | null>(null);
@@ -135,6 +144,77 @@ export default function FinanzasPage() {
   const [vista, setVista] = useState<Vista>("mes");
   const [enfoque, setEnfoque] = useState(() => new Date());
   const { showToast } = useToast();
+
+  // Calcular la velocidad diaria y estimación de fin de stock
+  const prediccionesInventario = useMemo(() => {
+    const ahora = new Date();
+    const hace30Dias = new Date();
+    hace30Dias.setDate(ahora.getDate() - 30);
+
+    const conteoVentas30d: Record<string, number> = {};
+    citas.forEach((c) => {
+      if (c.estado === "completada" && c.productoVendidoId && c.fecha_hora) {
+        const fechaCita = new Date(c.fecha_hora);
+        if (fechaCita >= hace30Dias) {
+          conteoVentas30d[c.productoVendidoId] = (conteoVentas30d[c.productoVendidoId] || 0) + 1;
+        }
+      }
+    });
+
+    const resultados: Record<string, { diaria: number; diasRestantes: number | string }> = {};
+    productos.forEach((p) => {
+      const ventas = conteoVentas30d[p.id] || 0;
+      const diaria = Number((ventas / 30).toFixed(3));
+      let diasRestantes: number | string = "Estable";
+      if (diaria > 0) {
+        diasRestantes = Math.max(0, Math.round(p.stock / diaria));
+      }
+      resultados[p.id] = { diaria, diasRestantes };
+    });
+
+    return resultados;
+  }, [productos, citas]);
+
+  // Construir la lista de compras sugeridas
+  const listaComprasSugerida = useMemo(() => {
+    return productos
+      .map((p) => {
+        const pred = prediccionesInventario[p.id] || { diaria: 0, diasRestantes: "Estable" };
+        const criticoStock = p.stock <= p.stock_minimo;
+        const criticoDias = typeof pred.diasRestantes === "number" && pred.diasRestantes <= 7;
+        const necesitaReabastecer = criticoStock || criticoDias || p.stock === 0;
+
+        // Cantidad sugerida: llegar al triple del mínimo o un lote básico de 5
+        const cantidadSugerida = necesitaReabastecer
+          ? Math.max(5, (p.stock_minimo * 3) - p.stock)
+          : 0;
+
+        return {
+          producto: p,
+          pred,
+          necesitaReabastecer,
+          cantidadSugerida,
+          motivo: p.stock === 0 
+            ? "Agotado" 
+            : criticoStock 
+              ? "Bajo mínimo" 
+              : "Se agota pronto (< 7 días)"
+        };
+      })
+      .filter((item) => item.necesitaReabastecer);
+  }, [productos, prediccionesInventario]);
+
+  const enviarListaProveedor = () => {
+    if (listaComprasSugerida.length === 0) return;
+    
+    let mensaje = `*Lista de Compras Sugerida - MajoSkin* 🛒✨\n\nHola! Me gustaría cotizar el siguiente pedido de insumos de cabina:\n`;
+    listaComprasSugerida.forEach((item) => {
+      mensaje += `- *${item.cantidadSugerida} pz* x ${item.producto.nombre} (Motivo: ${item.motivo})\n`;
+    });
+    mensaje += `\n¡Muchas gracias! 💕`;
+    
+    window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, "_blank");
+  };
 
   const handleEliminar = async () => {
     if (!eliminando) return;
@@ -261,27 +341,27 @@ export default function FinanzasPage() {
   ];
 
   return (
-    <div className="flex min-h-full flex-col bg-background">
+    <div className="flex min-h-full flex-col bg-background text-foreground pb-24">
       <OfflineIndicator />
 
       <div className="flex-1 px-6 pt-8">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="font-serif text-3xl font-bold tracking-tight">
+          <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground">
             Finanzas
           </h1>
           {seccion === "movimientos" && transacciones.length > 0 && (
             <button
               onClick={() => exportarTransacciones(transacciones)}
               aria-label="Exportar finanzas a CSV"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-card border border-border shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all active:scale-90"
             >
-              <Download className="h-5 w-5 text-gray-400" />
+              <Download className="h-5 w-5 text-muted" />
             </button>
           )}
         </div>
 
         {/* Segmented Section Selector: Movimientos vs Inventario */}
-        <div className="mb-5 flex rounded-full bg-white p-1 shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-[#FAFAFA]">
+        <div className="mb-5 flex rounded-full bg-card p-1 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-border">
           <button
             onClick={() => {
               if (typeof navigator !== "undefined" && navigator.vibrate) {
@@ -292,7 +372,7 @@ export default function FinanzasPage() {
             className={`flex-1 rounded-full py-2 text-xs font-bold transition-all ${
               seccion === "movimientos"
                 ? "bg-primary text-white shadow-sm"
-                : "text-gray-400 active:scale-95"
+                : "text-muted active:scale-95"
             }`}
           >
             Movimientos
@@ -307,7 +387,7 @@ export default function FinanzasPage() {
             className={`flex-1 rounded-full py-2 text-xs font-bold transition-all ${
               seccion === "inventario"
                 ? "bg-primary text-white shadow-sm"
-                : "text-gray-400 active:scale-95"
+                : "text-muted active:scale-95"
             }`}
           >
             Inventario
@@ -328,9 +408,9 @@ export default function FinanzasPage() {
                   {resumen.map(({ label, value, textColor }) => (
                     <div
                       key={label}
-                      className="rounded-3xl bg-white px-3 py-4 text-center shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-[#FAFAFA]"
+                      className="rounded-3xl bg-card px-3 py-4 text-center border border-border shadow-[0_4px_20px_rgba(0,0,0,0.03)]"
                     >
-                      <p className="text-xs text-gray-400">{label}</p>
+                      <p className="text-xs text-muted">{label}</p>
                       <p className={`mt-1 text-sm font-bold ${textColor}`}>
                         {value}
                       </p>
@@ -338,7 +418,7 @@ export default function FinanzasPage() {
                   ))}
                 </div>
 
-                <div className="mt-5 mb-3 flex rounded-full bg-white p-1 shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-[#FAFAFA]">
+                <div className="mt-5 mb-3 flex rounded-full bg-card p-1 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-border">
                   {VISTAS.map((v) => (
                     <button
                       key={v.key}
@@ -349,7 +429,7 @@ export default function FinanzasPage() {
                       className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition-all ${
                         vista === v.key
                           ? "bg-primary text-white shadow-sm"
-                          : "text-gray-400 active:scale-95"
+                          : "text-muted active:scale-95"
                       }`}
                     >
                       {v.label}
@@ -361,9 +441,9 @@ export default function FinanzasPage() {
                   <button
                     onClick={() => navegarVista(-1)}
                     aria-label="Anterior"
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-card border border-border shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all active:scale-90"
                   >
-                    <ChevronLeft className="h-4 w-4 text-gray-400" />
+                    <ChevronLeft className="h-4 w-4 text-muted" />
                   </button>
                   <p className="text-center text-sm font-medium capitalize text-foreground">
                     {tituloVista(vista, enfoque)}
@@ -371,16 +451,16 @@ export default function FinanzasPage() {
                   <button
                     onClick={() => navegarVista(1)}
                     aria-label="Siguiente"
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-card border border-border shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all active:scale-90"
                   >
-                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                    <ChevronRight className="h-4 w-4 text-muted" />
                   </button>
                 </div>
 
                 {/* Desglose por categorías premium */}
                 {filtradas.length > 0 && (
-                  <div className="mb-6 rounded-3xl bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-[#FAFAFA]">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <div className="mb-6 rounded-3xl bg-card p-5 border border-border shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted">
                       Desglose por Categorías
                     </p>
                     <div className="flex flex-col gap-5">
@@ -397,11 +477,11 @@ export default function FinanzasPage() {
                               const porcentaje = Math.round((monto / ingresos) * 100);
                               return (
                                 <div key={cat} className="text-xs">
-                                  <div className="flex justify-between text-gray-500 mb-1 font-medium">
+                                  <div className="flex justify-between text-muted mb-1 font-medium">
                                     <span>{cat}</span>
                                     <span>{porcentaje}% ({formatearMonto(monto)})</span>
                                   </div>
-                                  <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                  <div className="w-full bg-border/60 h-2 rounded-full overflow-hidden">
                                     <div 
                                       className="bg-success h-full rounded-full transition-all duration-500" 
                                       style={{ width: `${porcentaje}%` }} 
@@ -427,11 +507,11 @@ export default function FinanzasPage() {
                               const porcentaje = Math.round((monto / gastos) * 100);
                               return (
                                 <div key={cat} className="text-xs">
-                                  <div className="flex justify-between text-gray-500 mb-1 font-medium">
+                                  <div className="flex justify-between text-muted mb-1 font-medium">
                                     <span>{cat}</span>
                                     <span>{porcentaje}% ({formatearMonto(monto)})</span>
                                   </div>
-                                  <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                  <div className="w-full bg-border/60 h-2 rounded-full overflow-hidden">
                                     <div 
                                       className="bg-danger h-full rounded-full transition-all duration-500" 
                                       style={{ width: `${porcentaje}%` }} 
@@ -645,6 +725,88 @@ export default function FinanzasPage() {
         message={`¿Eliminar "${eliminandoProducto?.nombre ?? ""}" del Inventario? Esta acción no se puede deshacer.`}
         loading={!!eliminandoProductoId}
       />
+
+      {/* BottomSheet: Lista de Compras Inteligente */}
+      <BottomSheet
+        isOpen={isRestockOpen}
+        onClose={() => setIsRestockOpen(false)}
+        title="Lista de Compras Inteligente 🛒"
+      >
+        <div className="flex flex-col gap-4 pb-safe text-foreground">
+          <p className="text-xs text-muted">
+            Este análisis calcula la velocidad diaria de venta basada en las citas completadas de los últimos 30 días para recomendar los productos a resurtir de forma preventiva.
+          </p>
+
+          {listaComprasSugerida.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <Package className="h-10 w-10 text-success" />
+              <p className="text-sm font-semibold text-success">¡Inventario Excelente! ✨</p>
+              <p className="text-xs text-muted">
+                Todos tus productos tienen suficiente stock y ritmo estable de venta. No requieres resurtir nada hoy.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="max-h-72 overflow-y-auto flex flex-col gap-2.5 rounded-2xl bg-border/20 p-4 border border-border">
+                {listaComprasSugerida.map((item) => (
+                  <div 
+                    key={item.producto.id} 
+                    className="flex items-center justify-between border-b border-border/40 pb-2 last:border-0 last:pb-0 text-xs"
+                  >
+                    <div>
+                      <p className="font-semibold text-foreground">{item.producto.nombre}</p>
+                      <p className="mt-0.5 text-[10px] text-muted">
+                        Stock actual: {item.producto.stock} pz (Min: {item.producto.stock_minimo})
+                      </p>
+                      <span className="mt-1 inline-block rounded bg-danger/10 px-1.5 py-0.2 text-[9px] font-bold text-danger">
+                        {item.motivo}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-primary text-sm">
+                        +{item.cantidadSugerida} pz
+                      </p>
+                      <p className="text-[10px] text-muted">Sugerido</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={enviarListaProveedor}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-success py-3.5 text-sm font-semibold text-white shadow-lg transition-all active:scale-95"
+              >
+                <Share2 className="h-4.5 w-4.5" />
+                Compartir Pedido por WhatsApp
+              </button>
+            </>
+          )}
+
+          {/* Velocidad de rotación informativa */}
+          <div className="mt-2">
+            <p className="mb-2 text-xs font-semibold text-muted uppercase tracking-wider">
+              Análisis de Rotación
+            </p>
+            <div className="flex flex-col gap-2 text-xs">
+              {productos.map((p) => {
+                const pred = prediccionesInventario[p.id];
+                if (!pred || pred.diaria === 0) return null;
+                return (
+                  <div key={p.id} className="flex justify-between py-1 border-b border-border/25 last:border-0">
+                    <span className="text-muted">{p.nombre}</span>
+                    <span className="font-medium text-foreground">
+                      {pred.diaria} pz/día ({Math.round(pred.diaria * 30)} al mes)
+                    </span>
+                  </div>
+                );
+              })}
+              {!Object.values(prediccionesInventario).some(p => p.diaria > 0) && (
+                <p className="text-[11px] text-muted italic">Sin ventas de productos registradas en los últimos 30 días.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 }
