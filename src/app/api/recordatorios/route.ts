@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb, getAdminMessaging } from "@/lib/firebase-admin";
 
 const INTERVALOS = [
   { key: "24h", ms: 24 * 60 * 60 * 1000, label: "24 horas" },
@@ -9,18 +8,28 @@ const INTERVALOS = [
 
 const TOLERANCIA_MS = 30 * 60 * 1000;
 
+export async function GET() {
+  const checks = {
+    cron_secret: !!process.env.CRON_SECRET,
+    service_account: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+  };
+  return NextResponse.json({ status: "ok", ...checks });
+}
+
 export async function POST(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization")?.replace("Bearer ", "");
+  try {
+    const secret = process.env.CRON_SECRET;
+    const auth = req.headers.get("authorization")?.replace("Bearer ", "");
 
-  if (!secret || auth !== secret) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+    if (!secret || auth !== secret) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
 
-  const db = getAdminDb();
-  const messaging = getAdminMessaging();
+    const { getAdminDb, getAdminMessaging } = await import("@/lib/firebase-admin");
+    const db = getAdminDb();
+    const messaging = getAdminMessaging();
 
-  const tokensSnap = await db.collection("fcmTokens").get();
+    const tokensSnap = await db.collection("fcmTokens").get();
   const tokens: string[] = [];
   tokensSnap.forEach((d) => {
     const t = d.data().token;
@@ -77,4 +86,8 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ enviados });
+  } catch (err) {
+    const mensaje = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: mensaje }, { status: 500 });
+  }
 }
