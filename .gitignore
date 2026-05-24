@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# firebase service account key
+majoadmin-firebase-adminsdk-fbsvc-d48c983edd.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

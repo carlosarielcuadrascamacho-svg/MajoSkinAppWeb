@@ -1,61 +1,63 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Plus, Wallet, Trash2 } from "lucide-react";
+import { useState } from "react";
 import {
-  collection,
-  query,
-  orderBy,
-  getDocs,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
+  Plus,
+  Wallet,
+  Trash2,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useTransacciones } from "@/hooks/useTransacciones";
 import TransaccionModal from "@/components/TransaccionModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import OfflineIndicator from "@/components/OfflineIndicator";
 import Skeleton from "@/components/Skeleton";
 import { useToast } from "@/context/ToastContext";
+import { formatearMonto } from "@/lib/utils";
+import { descargarCSV } from "@/lib/csv";
+import type { Transaccion } from "@/types/transaccion";
 
-interface Transaccion {
-  id: string;
-  tipo: "ingreso" | "gasto";
-  descripcion: string;
-  monto: number;
+function transaccionEnMes(t: Transaccion, mes: Date): boolean {
+  if (!t.creadoEn?.seconds) return false;
+  const fecha = new Date(t.creadoEn.seconds * 1000);
+  return (
+    fecha.getMonth() === mes.getMonth() &&
+    fecha.getFullYear() === mes.getFullYear()
+  );
+}
+
+function exportarTransacciones(transacciones: Transaccion[]) {
+  descargarCSV(
+    `finanzas-${new Date().toISOString().slice(0, 10)}.csv`,
+    ["Tipo", "Descripción", "Monto", "Fecha"],
+    transacciones.map((t) => [
+      t.tipo === "ingreso" ? "Ingreso" : "Gasto",
+      t.descripcion,
+      t.monto,
+      t.creadoEn?.seconds
+        ? new Date(t.creadoEn.seconds * 1000).toISOString()
+        : "",
+    ])
+  );
 }
 
 export default function FinanzasPage() {
+  const { transacciones, loading } = useTransacciones();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState<Transaccion | null>(null);
   const [eliminando, setEliminando] = useState<Transaccion | null>(null);
+  const [mesActual, setMesActual] = useState(() => new Date());
   const { showToast } = useToast();
-
-  const cargarTransacciones = useCallback(async () => {
-    setLoading(true);
-    const q = query(
-      collection(db, "transacciones"),
-      orderBy("creadoEn", "desc")
-    );
-    const snapshot = await getDocs(q);
-    const lista = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Transaccion[];
-    setTransacciones(lista);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    cargarTransacciones();
-  }, [cargarTransacciones]);
 
   const handleEliminar = async () => {
     if (!eliminando) return;
     try {
       await deleteDoc(doc(db, "transacciones", eliminando.id));
       showToast("Transacción eliminada", "success");
-      cargarTransacciones();
     } catch {
       showToast("Error al eliminar la transacción", "error");
     }
@@ -72,18 +74,19 @@ export default function FinanzasPage() {
     setEditando(null);
   };
 
-  const ingresos = transacciones
+  const filtradas = transacciones.filter((t) =>
+    transaccionEnMes(t, mesActual)
+  );
+
+  const ingresos = filtradas
     .filter((t) => t.tipo === "ingreso")
     .reduce((sum, t) => sum + t.monto, 0);
 
-  const gastos = transacciones
+  const gastos = filtradas
     .filter((t) => t.tipo === "gasto")
     .reduce((sum, t) => sum + t.monto, 0);
 
   const balance = ingresos - gastos;
-
-  const formatearMonto = (monto: number) =>
-    `$${monto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
 
   const resumen = [
     {
@@ -103,12 +106,38 @@ export default function FinanzasPage() {
     },
   ];
 
+  const cambiarMes = (delta: number) => {
+    setMesActual((prev) => {
+      const nuevo = new Date(prev);
+      nuevo.setMonth(nuevo.getMonth() + delta);
+      return nuevo;
+    });
+  };
+
+  const nombreMes = mesActual.toLocaleDateString("es-MX", {
+    month: "long",
+    year: "numeric",
+  });
+
   return (
     <div className="flex min-h-full flex-col bg-background">
+      <OfflineIndicator />
+
       <div className="flex-1 px-6 pt-8">
-        <h1 className="mb-6 font-serif text-3xl font-bold tracking-tight">
-          Finanzas
-        </h1>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="font-serif text-3xl font-bold tracking-tight">
+            Finanzas
+          </h1>
+          {transacciones.length > 0 && (
+            <button
+              onClick={() => exportarTransacciones(transacciones)}
+              aria-label="Exportar finanzas a CSV"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
+            >
+              <Download className="h-5 w-5 text-gray-400" />
+            </button>
+          )}
+        </div>
 
         {loading ? (
           <div className="flex flex-col gap-3">
@@ -132,30 +161,41 @@ export default function FinanzasPage() {
               ))}
             </div>
 
-            {transacciones.length === 0 ? (
-              <div className="mt-20 flex flex-col items-center gap-3">
+            <div className="mt-6 mb-4 flex items-center justify-center gap-4">
+              <button
+                onClick={() => cambiarMes(-1)}
+                aria-label="Mes anterior"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
+              >
+                <ChevronLeft className="h-4 w-4 text-gray-400" />
+              </button>
+              <p className="text-sm font-medium capitalize text-foreground">
+                {nombreMes}
+              </p>
+              <button
+                onClick={() => cambiarMes(1)}
+                aria-label="Mes siguiente"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
+              >
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              </button>
+            </div>
+
+            {filtradas.length === 0 ? (
+              <div className="mt-10 flex flex-col items-center gap-3">
                 <Wallet className="h-10 w-10 text-gray-300" />
                 <p className="text-sm text-gray-400">
-                  No hay movimientos registrados
+                  Sin movimientos en {nombreMes}
                 </p>
               </div>
             ) : (
-              <div className="mt-6 flex flex-col gap-2 pb-4">
-                {transacciones.map((t) => (
+              <div className="flex flex-col gap-2 pb-4">
+                {filtradas.map((t) => (
                   <div
                     key={t.id}
                     onClick={() => abrirEditar(t)}
-                    className="relative flex items-center justify-between rounded-3xl bg-white px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-transform active:scale-[0.98]"
+                    className="flex items-start justify-between rounded-3xl bg-white px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-[0.98]"
                   >
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEliminando(t);
-                      }}
-                      className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-danger/10 text-danger transition-transform active:scale-90"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                     <div>
                       <p className="text-sm font-medium text-foreground">
                         {t.descripcion}
@@ -164,14 +204,26 @@ export default function FinanzasPage() {
                         {t.tipo === "ingreso" ? "Ingreso" : "Gasto"}
                       </p>
                     </div>
-                    <p
-                      className={`text-sm font-semibold ${
-                        t.tipo === "ingreso" ? "text-success" : "text-danger"
-                      }`}
-                    >
-                      {t.tipo === "ingreso" ? "+" : "-"}
-                      {formatearMonto(t.monto)}
-                    </p>
+                    <div className="flex flex-col items-end gap-2">
+                      <p
+                        className={`text-sm font-semibold ${
+                          t.tipo === "ingreso" ? "text-success" : "text-danger"
+                        }`}
+                      >
+                        {t.tipo === "ingreso" ? "+" : "-"}
+                        {formatearMonto(t.monto)}
+                      </p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEliminando(t);
+                        }}
+                        aria-label="Eliminar transacción"
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-danger/10 text-danger transition-all active:scale-90"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -182,7 +234,9 @@ export default function FinanzasPage() {
 
       <button
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg transition-transform active:scale-90"
+        aria-label="Nueva transacción"
+        className="fixed bottom-24 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg transition-all active:scale-90 active:shadow-xl"
+        style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <Plus className="h-7 w-7" />
       </button>
@@ -190,7 +244,6 @@ export default function FinanzasPage() {
       <TransaccionModal
         isOpen={isModalOpen}
         onClose={cerrarModal}
-        onTransaccionAgregada={cargarTransacciones}
         transaccionEditando={editando}
       />
 

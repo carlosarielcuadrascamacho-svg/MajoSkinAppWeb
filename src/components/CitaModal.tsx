@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
 import {
   collection,
   addDoc,
@@ -10,33 +9,30 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { TRATAMIENTOS, ESTADOS_CITA } from "@/constants/citas";
 import { useToast } from "@/context/ToastContext";
-
-interface CitaEdit {
-  id: string;
-  cliente_nombre: string;
-  tratamiento: string;
-  fecha_hora: string;
-  notas?: string;
-}
+import BottomSheet from "@/components/BottomSheet";
+import Input from "@/components/Input";
+import Select from "@/components/Select";
+import Textarea from "@/components/Textarea";
+import type { Cita } from "@/types/cita";
 
 interface CitaModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCitaAgregada: () => void;
-  citaEditando?: CitaEdit | null;
+  citaEditando?: Cita | null;
 }
 
 export default function CitaModal({
   isOpen,
   onClose,
-  onCitaAgregada,
   citaEditando,
 }: CitaModalProps) {
   const [nombre, setNombre] = useState("");
   const [tratamiento, setTratamiento] = useState("");
   const [fecha, setFecha] = useState("");
   const [notas, setNotas] = useState("");
+  const [estado, setEstado] = useState("pendiente");
   const [guardando, setGuardando] = useState(false);
   const { showToast } = useToast();
 
@@ -46,26 +42,31 @@ export default function CitaModal({
       setTratamiento(citaEditando.tratamiento);
       setFecha(citaEditando.fecha_hora);
       setNotas(citaEditando.notas ?? "");
+      setEstado(citaEditando.estado);
     } else {
       setNombre("");
       setTratamiento("");
       setFecha("");
       setNotas("");
+      setEstado("pendiente");
     }
   }, [citaEditando, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!nombre.trim() || !tratamiento.trim() || !fecha) {
+      showToast("Completa todos los campos obligatorios", "error");
+      return;
+    }
     setGuardando(true);
 
     try {
       const data = {
-        cliente_nombre: nombre,
-        tratamiento,
+        cliente_nombre: nombre.trim(),
+        tratamiento: tratamiento.trim(),
         fecha_hora: fecha,
-        notas,
+        notas: notas.trim(),
+        estado,
       };
 
       if (citaEditando) {
@@ -74,13 +75,12 @@ export default function CitaModal({
       } else {
         await addDoc(collection(db, "citas"), {
           ...data,
-          estado: "pendiente",
+          recordatorios: {},
           creadoEn: serverTimestamp(),
         });
         showToast("Cita guardada", "success");
       }
 
-      onCitaAgregada();
       onClose();
     } catch {
       showToast("Error al guardar la cita", "error");
@@ -90,83 +90,84 @@ export default function CitaModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-t-3xl bg-white px-6 pb-10 pt-6 shadow-xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="font-serif text-lg font-semibold">
-            {citaEditando ? "Editar Cita" : "Nueva Cita"}
-          </h2>
-          <button onClick={onClose}>
-            <X className="h-5 w-5 text-gray-400" />
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={citaEditando ? "Editar Cita" : "Nueva Cita"}
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <Input
+          label="Nombre de la clienta"
+          type="text"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          required
+        />
+
+        <Select
+          label="Tratamiento"
+          value={tratamiento}
+          onChange={(e) => setTratamiento(e.target.value)}
+          required
+        >
+          <option value="" disabled>
+            Seleccionar tratamiento
+          </option>
+          {TRATAMIENTOS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </Select>
+
+        <Input
+          label="Fecha y hora"
+          type="datetime-local"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          required
+        />
+
+        <Select
+          label="Estado"
+          value={estado}
+          onChange={(e) => setEstado(e.target.value)}
+        >
+          {ESTADOS_CITA.map((e) => (
+            <option key={e} value={e}>
+              {e.charAt(0).toUpperCase() + e.slice(1)}
+            </option>
+          ))}
+        </Select>
+
+        <Textarea
+          label="Notas (opcional)"
+          rows={3}
+          value={notas}
+          onChange={(e) => setNotas(e.target.value)}
+        />
+
+        <div className="flex gap-3 pb-safe">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-full bg-gray-100 py-3 text-sm font-semibold text-gray-500 transition-all active:scale-95"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={guardando}
+            className="flex-1 rounded-full bg-primary py-3 text-sm font-semibold text-white shadow-lg transition-all active:scale-95 active:shadow-xl disabled:opacity-60"
+          >
+            {guardando
+              ? "Guardando..."
+              : citaEditando
+                ? "Guardar Cambios"
+                : "Guardar Cita"}
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="text"
-            placeholder="Nombre de la clienta"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            required
-            className="rounded-full border border-[#E5E5E5] px-5 py-3 text-base outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-
-          <select
-            value={tratamiento}
-            onChange={(e) => setTratamiento(e.target.value)}
-            required
-            className="rounded-full border border-[#E5E5E5] px-5 py-3 text-base outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-          >
-            <option value="" disabled>
-              Seleccionar tratamiento
-            </option>
-            <option value="Limpieza Facial">Limpieza Facial</option>
-            <option value="Hidratacion">Hidratación</option>
-            <option value="Radiofrecuencia">Radiofrecuencia</option>
-            <option value="Dermaplaning">Dermaplaning</option>
-            <option value="Micropigmentacion">Micropigmentación</option>
-            <option value="Otro">Otro</option>
-          </select>
-
-          <input
-            type="datetime-local"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            required
-            className="rounded-full border border-[#E5E5E5] px-5 py-3 text-base outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-
-          <textarea
-            placeholder="Notas (opcional)"
-            rows={3}
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
-            className="resize-none rounded-3xl border border-[#E5E5E5] px-5 py-3 text-base outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-
-          <div className="mt-2 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-full bg-gray-100 py-3 text-sm font-semibold text-gray-500 transition-transform active:scale-95"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={guardando}
-              className="flex-1 rounded-full bg-primary py-3 text-sm font-semibold text-white shadow-lg transition-transform active:scale-95 disabled:opacity-60"
-            >
-              {guardando
-                ? "Guardando..."
-                : citaEditando
-                  ? "Guardar Cambios"
-                  : "Guardar Cita"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </BottomSheet>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Skeleton from "@/components/Skeleton";
@@ -12,9 +12,11 @@ export default function ProtectedRoute({
 }) {
   const { currentUser, loading } = useAuth();
   const router = useRouter();
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     if (!loading && !currentUser) {
+      setRedirecting(true);
       router.replace("/login");
     }
   }, [loading, currentUser, router]);
@@ -31,7 +33,12 @@ export default function ProtectedRoute({
   }
 
   if (!currentUser) {
-    return null;
+    return (
+      <div className="flex min-h-full flex-col gap-4 px-6 pt-8">
+        <Skeleton className="h-8 w-48" />
+        <p className="text-sm text-gray-400">Redirigiendo al inicio de sesión...</p>
+      </div>
+    );
   }
 
   return <>{children}</>;

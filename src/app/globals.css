@@ -3,17 +3,11 @@
 @theme inline {
   --color-background: #fdfbf7;
   --color-foreground: #4a4a4a;
-  --color-primary: #d4b895;
-  --color-success: #8daa9d;
-  --color-danger: #d9a7a7;
+  --color-primary: #8b6f40;
+  --color-success: #557467;
+  --color-danger: #a35e5e;
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
-}
-
-body {
-  background: #fdfbf7;
-  color: #4a4a4a;
-  font-family: var(--font-sans);
 }
 
 @keyframes slideDown {
@@ -25,4 +19,12 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
 }

@@ -13,6 +13,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const limpiarError = () => { if (error) setError(""); };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -51,23 +53,35 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="email"
-            placeholder="Correo electrónico"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="rounded-full border border-[#E5E5E5] bg-white px-5 py-3.5 text-base text-foreground outline-none transition placeholder:text-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
+          <div>
+            <label htmlFor="login-email" className="mb-1 ml-4 block text-xs font-medium text-gray-400">
+              Correo electrónico
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              placeholder="tucorreo@ejemplo.com"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); limpiarError(); }}
+              required
+              className="w-full rounded-full border border-[#E5E5E5] bg-white px-5 py-3 text-base text-foreground transition placeholder:text-gray-300 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            />
+          </div>
 
-          <input
-            type="password"
-            placeholder="Contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="rounded-full border border-[#E5E5E5] bg-white px-5 py-3.5 text-base text-foreground outline-none transition placeholder:text-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
+          <div>
+            <label htmlFor="login-password" className="mb-1 ml-4 block text-xs font-medium text-gray-400">
+              Contraseña
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              placeholder="Ingresa tu contraseña"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); limpiarError(); }}
+              required
+              className="w-full rounded-full border border-[#E5E5E5] bg-white px-5 py-3 text-base text-foreground transition placeholder:text-gray-300 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            />
+          </div>
 
           {error && (
             <p className="text-center text-sm text-danger">{error}</p>
@@ -76,7 +90,8 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 w-full rounded-full bg-primary py-3.5 text-base font-semibold text-white shadow-lg transition-transform active:scale-95 disabled:opacity-60"
+            aria-label="Iniciar sesión"
+            className="mt-2 w-full rounded-full bg-primary py-3 text-base font-semibold text-white shadow-lg transition-transform active:scale-95 disabled:opacity-60"
           >
             {loading ? "Entrando..." : "Entrar"}
           </button>

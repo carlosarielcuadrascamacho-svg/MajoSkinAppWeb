@@ -1,6 +1,11 @@
-import { initializeApp, getApps } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  getFirestore,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,7 +16,30 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// Validar que todas las propiedades requeridas estén definidas
+for (const [key, value] of Object.entries(firebaseConfig)) {
+  if (!value) {
+    const envVarName = `NEXT_PUBLIC_FIREBASE_${key.replace(/([A-Z])/g, "_$1").toUpperCase()}`;
+    throw new Error(`Falta variable de entorno: ${envVarName}`);
+  }
+}
+
+// Para evitar problemas en HMR de Next.js (Hot Module Replacement)
+const isAlreadyInitialized = getApps().length > 0;
+const app = !isAlreadyInitialized ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Inicializar Firestore de forma moderna para evitar la advertencia de depreciación
+let firestoreDb;
+if (!isAlreadyInitialized) {
+  firestoreDb = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
+} else {
+  firestoreDb = getFirestore(app);
+}
+
+export const db = firestoreDb;
