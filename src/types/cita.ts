@@ -8,6 +8,7 @@ import {
 export interface Cita {
   id: string;
   cliente_nombre: string;
+  cliente_telefono?: string;
   tratamiento: string;
   fecha_hora: string;
   notas: string;

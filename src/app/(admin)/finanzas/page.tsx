@@ -165,6 +165,42 @@ export default function FinanzasPage() {
 
   const balance = ingresos - gastos;
 
+  // 1. Calcular totales por categoría para Ingresos
+  const categoriasIngresos: Record<string, number> = {
+    "Servicios": 0,
+    "Venta de Productos": 0,
+    "Otros": 0,
+  };
+  filtradas
+    .filter((t) => t.tipo === "ingreso")
+    .forEach((t) => {
+      const cat = t.categoria || "Otros";
+      if (categoriasIngresos[cat] !== undefined) {
+        categoriasIngresos[cat] += t.monto;
+      } else {
+        categoriasIngresos["Otros"] += t.monto;
+      }
+    });
+
+  // 2. Calcular totales por categoría para Gastos
+  const categoriasGastos: Record<string, number> = {
+    "Insumos y Materiales": 0,
+    "Renta y Servicios": 0,
+    "Publicidad": 0,
+    "Capacitación": 0,
+    "Otros": 0,
+  };
+  filtradas
+    .filter((t) => t.tipo === "gasto")
+    .forEach((t) => {
+      const cat = t.categoria || "Otros";
+      if (categoriasGastos[cat] !== undefined) {
+        categoriasGastos[cat] += t.monto;
+      } else {
+        categoriasGastos["Otros"] += t.monto;
+      }
+    });
+
   const resumen = [
     {
       label: "Ingresos",
@@ -270,6 +306,76 @@ export default function FinanzasPage() {
                 <ChevronRight className="h-4 w-4 text-gray-400" />
               </button>
             </div>
+
+            {/* Desglose por categorías premium */}
+            {filtradas.length > 0 && (
+              <div className="mb-6 rounded-3xl bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-[#FAFAFA]">
+                <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Desglose por Categorías
+                </p>
+                <div className="flex flex-col gap-5">
+                  {/* Ingresos */}
+                  {ingresos > 0 && (
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-bold text-success uppercase tracking-wider">Ingresos</span>
+                        <span className="text-xs text-success font-semibold">{formatearMonto(ingresos)}</span>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        {Object.entries(categoriasIngresos).map(([cat, monto]) => {
+                          if (monto === 0) return null;
+                          const porcentaje = Math.round((monto / ingresos) * 100);
+                          return (
+                            <div key={cat} className="text-xs">
+                              <div className="flex justify-between text-gray-500 mb-1 font-medium">
+                                <span>{cat}</span>
+                                <span>{porcentaje}% ({formatearMonto(monto)})</span>
+                              </div>
+                              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                <div 
+                                  className="bg-success h-full rounded-full transition-all duration-500" 
+                                  style={{ width: `${porcentaje}%` }} 
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Gastos */}
+                  {gastos > 0 && (
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-bold text-danger uppercase tracking-wider">Gastos</span>
+                        <span className="text-xs text-danger font-semibold">{formatearMonto(gastos)}</span>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        {Object.entries(categoriasGastos).map(([cat, monto]) => {
+                          if (monto === 0) return null;
+                          const porcentaje = Math.round((monto / gastos) * 100);
+                          return (
+                            <div key={cat} className="text-xs">
+                              <div className="flex justify-between text-gray-500 mb-1 font-medium">
+                                <span>{cat}</span>
+                                <span>{porcentaje}% ({formatearMonto(monto)})</span>
+                              </div>
+                              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                <div 
+                                  className="bg-danger h-full rounded-full transition-all duration-500" 
+                                  style={{ width: `${porcentaje}%` }} 
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {filtradas.length === 0 ? (
               <div className="mt-10 flex flex-col items-center gap-3">

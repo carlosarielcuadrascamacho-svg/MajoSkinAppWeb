@@ -12,12 +12,14 @@ import { db } from "@/lib/firebase";
 import { useToast } from "@/context/ToastContext";
 import BottomSheet from "@/components/BottomSheet";
 import Input from "@/components/Input";
+import Select from "@/components/Select";
 
 interface TransaccionEdit {
   id: string;
   tipo: "ingreso" | "gasto";
   descripcion: string;
   monto: number;
+  categoria?: string;
 }
 
 interface TransaccionModalProps {
@@ -34,6 +36,7 @@ export default function TransaccionModal({
   const [tipo, setTipo] = useState<"ingreso" | "gasto">("ingreso");
   const [descripcion, setDescripcion] = useState("");
   const [monto, setMonto] = useState("");
+  const [categoria, setCategoria] = useState("Servicios");
   const [guardando, setGuardando] = useState(false);
   const { showToast } = useToast();
 
@@ -42,12 +45,19 @@ export default function TransaccionModal({
       setTipo(transaccionEditando.tipo);
       setDescripcion(transaccionEditando.descripcion);
       setMonto(String(transaccionEditando.monto));
+      setCategoria(transaccionEditando.categoria || (transaccionEditando.tipo === "ingreso" ? "Servicios" : "Insumos y Materiales"));
     } else {
       setTipo("ingreso");
       setDescripcion("");
       setMonto("");
+      setCategoria("Servicios");
     }
   }, [transaccionEditando, isOpen]);
+
+  const handleCambiarTipo = (nuevoTipo: "ingreso" | "gasto") => {
+    setTipo(nuevoTipo);
+    setCategoria(nuevoTipo === "ingreso" ? "Servicios" : "Insumos y Materiales");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +73,7 @@ export default function TransaccionModal({
         tipo,
         descripcion: descripcion.trim(),
         monto: Number(monto),
+        categoria,
       };
 
       if (transaccionEditando) {
@@ -94,7 +105,7 @@ export default function TransaccionModal({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setTipo("ingreso")}
+            onClick={() => handleCambiarTipo("ingreso")}
             aria-label="Seleccionar ingreso"
             className={`flex-1 rounded-full py-3 text-sm font-semibold transition-all active:scale-95 ${
               tipo === "ingreso"
@@ -106,7 +117,7 @@ export default function TransaccionModal({
           </button>
           <button
             type="button"
-            onClick={() => setTipo("gasto")}
+            onClick={() => handleCambiarTipo("gasto")}
             aria-label="Seleccionar gasto"
             className={`flex-1 rounded-full py-3 text-sm font-semibold transition-all active:scale-95 ${
               tipo === "gasto"
@@ -135,6 +146,29 @@ export default function TransaccionModal({
           onChange={(e) => setMonto(e.target.value)}
           required
         />
+
+        <Select
+          label="Categoría"
+          value={categoria}
+          onChange={(e) => setCategoria(e.target.value)}
+          required
+        >
+          {tipo === "ingreso" ? (
+            <>
+              <option value="Servicios">Servicios</option>
+              <option value="Venta de Productos">Venta de Productos</option>
+              <option value="Otros">Otros</option>
+            </>
+          ) : (
+            <>
+              <option value="Insumos y Materiales">Insumos y Materiales</option>
+              <option value="Renta y Servicios">Renta y Servicios</option>
+              <option value="Publicidad">Publicidad</option>
+              <option value="Capacitación">Capacitación</option>
+              <option value="Otros">Otros</option>
+            </>
+          )}
+        </Select>
 
         <div className="flex gap-3 pb-safe">
           <button

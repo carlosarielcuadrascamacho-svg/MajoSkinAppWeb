@@ -58,24 +58,65 @@ function exportarCitas(citas: Cita[]) {
   );
 }
 
+function enviarConfirmacion(cita: Cita) {
+  if (!cita.cliente_telefono) return;
+  const fecha = formatearFecha(cita.fecha_hora);
+  const mensaje = encodeURIComponent(
+    `¡Hola ${cita.cliente_nombre}! ✨ Te escribo de MajoSkin para recordarte tu cita de *${cita.tratamiento}* el día *${fecha}*. ¿Nos confirmas tu asistencia? ¡Que tengas un excelente día! 💕`
+  );
+  const formattedPhone = cita.cliente_telefono.startsWith("+") 
+    ? cita.cliente_telefono.replace("+", "") 
+    : cita.cliente_telefono.startsWith("52") 
+      ? cita.cliente_telefono 
+      : `52${cita.cliente_telefono}`;
+  window.open(`https://wa.me/${formattedPhone}?text=${mensaje}`, "_blank");
+}
+
 export default function CitasPage() {
   const { citas, loading } = useCitas();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [citaEditando, setCitaEditando] = useState<Cita | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  const [diaFiltro, setDiaFiltro] = useState<Date | null>(null);
   const [eliminando, setEliminando] = useState<Cita | null>(null);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const { showToast } = useToast();
 
-  const filtradas = useMemo(
-    () =>
-      busqueda.trim()
-        ? citas.filter((c) =>
-            c.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase().trim())
-          )
-        : citas,
-    [citas, busqueda]
-  );
+  const diasSemana = useMemo(() => {
+    const list = [];
+    const diasNombres = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const hoy = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(hoy.getDate() + i);
+      list.push({
+        nombre: diasNombres[d.getDay()],
+        numero: d.getDate(),
+        objeto: d,
+      });
+    }
+    return list;
+  }, []);
+
+  const filtradas = useMemo(() => {
+    let temp = citas;
+    if (busqueda.trim()) {
+      temp = temp.filter((c) =>
+        c.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase().trim())
+      );
+    }
+    if (diaFiltro) {
+      temp = temp.filter((c) => {
+        const cDate = new Date(c.fecha_hora);
+        return (
+          cDate.getDate() === diaFiltro.getDate() &&
+          cDate.getMonth() === diaFiltro.getMonth() &&
+          cDate.getFullYear() === diaFiltro.getFullYear()
+        );
+      });
+    }
+    return temp;
+  }, [citas, busqueda, diaFiltro]);
 
   const handleEliminar = async () => {
     if (!eliminando) return;
@@ -141,6 +182,75 @@ export default function CitasPage() {
           </div>
         )}
 
+        {/* Slider horizontal de Mini Calendario */}
+        {!loading && citas.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Agenda esta semana
+              </p>
+              {diaFiltro && (
+                <button
+                  onClick={() => {
+                    if (typeof navigator !== "undefined" && navigator.vibrate) {
+                      navigator.vibrate(20);
+                    }
+                    setDiaFiltro(null);
+                  }}
+                  className="text-xs font-semibold text-primary active:scale-95"
+                >
+                  Ver todas
+                </button>
+              )}
+            </div>
+            <div className="no-scrollbar -mx-6 flex gap-3 overflow-x-auto px-6 pb-2">
+              <button
+                onClick={() => {
+                  if (typeof navigator !== "undefined" && navigator.vibrate) {
+                    navigator.vibrate(20);
+                  }
+                  setDiaFiltro(null);
+                }}
+                className={`flex flex-col items-center justify-center rounded-2xl min-w-[54px] py-3 text-xs font-semibold transition-all shadow-[0_4px_20px_rgba(0,0,0,0.02)] ${
+                  diaFiltro === null
+                    ? "bg-primary text-white shadow-md shadow-primary/20 scale-105"
+                    : "bg-white text-gray-400 border border-[#F5F5F5] active:scale-95"
+                }`}
+              >
+                <span>Todo</span>
+                <span className="text-[10px] mt-0.5 opacity-80">Citas</span>
+              </button>
+              {diasSemana.map((d) => {
+                const active =
+                  diaFiltro !== null &&
+                  d.objeto.getDate() === diaFiltro.getDate() &&
+                  d.objeto.getMonth() === diaFiltro.getMonth() &&
+                  d.objeto.getFullYear() === diaFiltro.getFullYear();
+
+                return (
+                  <button
+                    key={d.numero + d.nombre}
+                    onClick={() => {
+                      if (typeof navigator !== "undefined" && navigator.vibrate) {
+                        navigator.vibrate(20);
+                      }
+                      setDiaFiltro(active ? null : d.objeto);
+                    }}
+                    className={`flex flex-col items-center justify-center rounded-2xl min-w-[54px] py-3 text-xs font-semibold transition-all shadow-[0_4px_20px_rgba(0,0,0,0.02)] ${
+                      active
+                        ? "bg-primary text-white shadow-md shadow-primary/20 scale-105"
+                        : "bg-white text-gray-400 border border-[#F5F5F5] active:scale-95"
+                    }`}
+                  >
+                    <span className="opacity-80">{d.nombre}</span>
+                    <span className="text-base font-bold mt-0.5">{d.numero}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map((i) => (
@@ -174,6 +284,9 @@ export default function CitasPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (typeof navigator !== "undefined" && navigator.vibrate) {
+                            navigator.vibrate(20);
+                          }
                           setEliminando(cita);
                         }}
                         disabled={eliminandoId === cita.id}
@@ -181,6 +294,29 @@ export default function CitasPage() {
                         className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-danger/10 text-danger transition-all active:scale-90 disabled:opacity-40"
                       >
                         <Trash2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (typeof navigator !== "undefined" && navigator.vibrate) {
+                            navigator.vibrate(20);
+                          }
+                          if (!cita.cliente_telefono) {
+                            showToast("Edita la cita para añadir el teléfono de la clienta y confirmar por WhatsApp", "error");
+                            return;
+                          }
+                          enviarConfirmacion(cita);
+                        }}
+                        aria-label="Confirmar cita por WhatsApp"
+                        className={`absolute right-14 top-4 flex h-8 w-8 items-center justify-center rounded-full transition-all active:scale-90 ${
+                          cita.cliente_telefono 
+                            ? "bg-success/10 text-success hover:bg-success/20" 
+                            : "bg-gray-100 text-gray-300 hover:bg-gray-200"
+                        }`}
+                      >
+                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.42 9.864-9.858.002-2.634-1.02-5.11-2.881-6.974-1.86-1.863-4.334-2.886-6.971-2.887-5.441 0-9.87 4.43-9.874 9.858-.001 1.637.425 3.235 1.238 4.646L1.88 21.6l4.767-1.25c.001-.001.001-.001.001-.001zm11.367-7.251c-.33-.164-1.952-.964-2.251-1.074-.3-.109-.518-.164-.736.164-.218.327-.844 1.074-1.034 1.293-.19.218-.379.245-.71.082-.33-.164-1.393-.513-2.653-1.638-.98-.874-1.641-1.953-1.833-2.28-.192-.327-.02-.504.145-.668.148-.148.33-.382.495-.572.164-.191.218-.328.327-.546.11-.218.055-.409-.028-.572-.082-.164-.736-1.775-1.009-2.43-.265-.636-.53-.55-.736-.56-.19-.01-.409-.01-.627-.01-.218 0-.572.082-.872.409-.3.327-1.145 1.118-1.145 2.727 0 1.61 1.173 3.163 1.336 3.382.164.218 2.307 3.522 5.59 4.945.78.338 1.39.54 1.865.69.785.25 1.5.214 2.065.13.629-.093 1.952-.799 2.224-1.572.272-.773.272-1.436.191-1.572-.081-.136-.3-.218-.63-.382z" />
+                        </svg>
                       </button>
                       <div className="flex items-center gap-2">
                         <p className="font-serif text-lg font-semibold text-foreground">

@@ -39,6 +39,7 @@ export default function CitaModal({
   citaEditando,
 }: CitaModalProps) {
   const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [tratamiento, setTratamiento] = useState("");
   const [fecha, setFecha] = useState("");
   const [notas, setNotas] = useState("");
@@ -51,12 +52,14 @@ export default function CitaModal({
   useEffect(() => {
     if (citaEditando) {
       setNombre(citaEditando.cliente_nombre);
+      setTelefono(citaEditando.cliente_telefono ?? "");
       setTratamiento(citaEditando.tratamiento);
       setFecha(citaEditando.fecha_hora);
       setNotas(citaEditando.notas ?? "");
       setEstado(citaEditando.estado);
     } else {
       setNombre("");
+      setTelefono("");
       setTratamiento("");
       setFecha("");
       setNotas("");
@@ -75,6 +78,7 @@ export default function CitaModal({
     try {
       const data = {
         cliente_nombre: nombre.trim(),
+        cliente_telefono: telefono.trim(),
         tratamiento: tratamiento.trim(),
         fecha_hora: fecha,
         notas: notas.trim(),
@@ -114,6 +118,14 @@ export default function CitaModal({
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           required
+        />
+
+        <Input
+          label="Teléfono de la clienta (opcional, para WhatsApp)"
+          type="tel"
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value.replace(/\D/g, "").slice(0, 10))}
+          placeholder="Ej: 6671234567"
         />
 
         <Select

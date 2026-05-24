@@ -23,6 +23,18 @@ export default function Dashboard() {
   const { showToast } = useToast();
   const [showSettings, setShowSettings] = useState(false);
   const [notifStatus, setNotifStatus] = useState<NotificationPermission | "unsupported" | null>(null);
+  const [saludo, setSaludo] = useState("¡Hola, Majo! ✨");
+
+  useEffect(() => {
+    const hora = new Date().getHours();
+    if (hora >= 5 && hora < 12) {
+      setSaludo("¡Buenos días, Majo! ☀️");
+    } else if (hora >= 12 && hora < 19) {
+      setSaludo("¡Buenas tardes, Majo! ✨");
+    } else {
+      setSaludo("¡Buenas noches, Majo! 🌙");
+    }
+  }, []);
 
   useEffect(() => {
     if (!("Notification" in window)) {
@@ -87,15 +99,20 @@ export default function Dashboard() {
 
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-bold tracking-tight">
-            Inicio
+          <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground">
+            {saludo}
           </h1>
-          <p className="text-sm text-gray-400">Bienvenida a MajoAdmin</p>
+          <p className="text-sm text-gray-400 mt-0.5">MajoSkin • Control de Cabina</p>
         </div>
         <button
-          onClick={() => setShowSettings(true)}
+          onClick={() => {
+            if (typeof navigator !== "undefined" && navigator.vibrate) {
+              navigator.vibrate(20);
+            }
+            setShowSettings(true);
+          }}
           aria-label="Abrir ajustes"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-[#FAFAFA] transition-all active:scale-90"
         >
           <Settings className="h-5 w-5 text-gray-400" />
         </button>

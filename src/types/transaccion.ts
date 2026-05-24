@@ -10,6 +10,7 @@ export interface Transaccion {
   tipo: "ingreso" | "gasto";
   descripcion: string;
   monto: number;
+  categoria?: string;
   creadoEn?: Timestamp;
 }
 
