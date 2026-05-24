@@ -21,13 +21,82 @@ import { formatearMonto } from "@/lib/utils";
 import { descargarCSV } from "@/lib/csv";
 import type { Transaccion } from "@/types/transaccion";
 
-function transaccionEnMes(t: Transaccion, mes: Date): boolean {
+type Vista = "dia" | "semana" | "mes" | "año";
+
+function inicioSemana(fecha: Date): Date {
+  const d = new Date(fecha);
+  const dia = d.getDay();
+  const diff = dia === 0 ? -6 : 1 - dia; // Lunes como inicio
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function finSemana(fecha: Date): Date {
+  const d = inicioSemana(fecha);
+  d.setDate(d.getDate() + 6);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function transaccionEnVista(t: Transaccion, vista: Vista, enfoque: Date): boolean {
   if (!t.creadoEn?.seconds) return false;
   const fecha = new Date(t.creadoEn.seconds * 1000);
+
+  if (vista === "dia") {
+    return (
+      fecha.getDate() === enfoque.getDate() &&
+      fecha.getMonth() === enfoque.getMonth() &&
+      fecha.getFullYear() === enfoque.getFullYear()
+    );
+  }
+
+  if (vista === "semana") {
+    const inicio = inicioSemana(enfoque);
+    const fin = finSemana(enfoque);
+    return fecha >= inicio && fecha <= fin;
+  }
+
+  if (vista === "año") {
+    return fecha.getFullYear() === enfoque.getFullYear();
+  }
+
+  // mes
   return (
-    fecha.getMonth() === mes.getMonth() &&
-    fecha.getFullYear() === mes.getFullYear()
+    fecha.getMonth() === enfoque.getMonth() &&
+    fecha.getFullYear() === enfoque.getFullYear()
   );
+}
+
+function navegar(vista: Vista, enfoque: Date, delta: number): Date {
+  const d = new Date(enfoque);
+  if (vista === "dia") d.setDate(d.getDate() + delta);
+  else if (vista === "semana") d.setDate(d.getDate() + delta * 7);
+  else if (vista === "mes") d.setMonth(d.getMonth() + delta);
+  else d.setFullYear(d.getFullYear() + delta);
+  return d;
+}
+
+function tituloVista(vista: Vista, enfoque: Date): string {
+  if (vista === "dia") {
+    return enfoque.toLocaleDateString("es-MX", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+  if (vista === "semana") {
+    const inicio = inicioSemana(enfoque);
+    const fin = finSemana(enfoque);
+    const iniStr = inicio.toLocaleDateString("es-MX", { day: "numeric", month: "long" });
+    const finStr = fin.toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+    return `${iniStr} – ${finStr}`;
+  }
+  if (vista === "año") {
+    return String(enfoque.getFullYear());
+  }
+  return enfoque.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
 }
 
 function exportarTransacciones(transacciones: Transaccion[]) {
@@ -51,7 +120,8 @@ export default function FinanzasPage() {
   const [editando, setEditando] = useState<Transaccion | null>(null);
   const [eliminando, setEliminando] = useState<Transaccion | null>(null);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
-  const [mesActual, setMesActual] = useState(() => new Date());
+  const [vista, setVista] = useState<Vista>("mes");
+  const [enfoque, setEnfoque] = useState(() => new Date());
   const { showToast } = useToast();
 
   const handleEliminar = async () => {
@@ -77,8 +147,12 @@ export default function FinanzasPage() {
     setEditando(null);
   };
 
+  const navegarVista = (delta: number) => {
+    setEnfoque((prev) => navegar(vista, prev, delta));
+  };
+
   const filtradas = transacciones.filter((t) =>
-    transaccionEnMes(t, mesActual)
+    transaccionEnVista(t, vista, enfoque)
   );
 
   const ingresos = filtradas
@@ -109,18 +183,12 @@ export default function FinanzasPage() {
     },
   ];
 
-  const cambiarMes = (delta: number) => {
-    setMesActual((prev) => {
-      const nuevo = new Date(prev);
-      nuevo.setMonth(nuevo.getMonth() + delta);
-      return nuevo;
-    });
-  };
-
-  const nombreMes = mesActual.toLocaleDateString("es-MX", {
-    month: "long",
-    year: "numeric",
-  });
+  const VISTAS: { key: Vista; label: string }[] = [
+    { key: "dia", label: "Día" },
+    { key: "semana", label: "Semana" },
+    { key: "mes", label: "Mes" },
+    { key: "año", label: "Año" },
+  ];
 
   return (
     <div className="flex min-h-full flex-col bg-background">
@@ -164,20 +232,39 @@ export default function FinanzasPage() {
               ))}
             </div>
 
-            <div className="mt-6 mb-4 flex items-center justify-center gap-4">
+            <div className="mt-5 mb-3 flex rounded-full bg-white p-1 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+              {VISTAS.map((v) => (
+                <button
+                  key={v.key}
+                  onClick={() => {
+                    setVista(v.key);
+                    setEnfoque(new Date());
+                  }}
+                  className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition-all ${
+                    vista === v.key
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-gray-400 active:scale-95"
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mb-4 flex items-center justify-center gap-4">
               <button
-                onClick={() => cambiarMes(-1)}
-                aria-label="Mes anterior"
+                onClick={() => navegarVista(-1)}
+                aria-label="Anterior"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
               >
                 <ChevronLeft className="h-4 w-4 text-gray-400" />
               </button>
-              <p className="text-sm font-medium capitalize text-foreground">
-                {nombreMes}
+              <p className="text-center text-sm font-medium capitalize text-foreground">
+                {tituloVista(vista, enfoque)}
               </p>
               <button
-                onClick={() => cambiarMes(1)}
-                aria-label="Mes siguiente"
+                onClick={() => navegarVista(1)}
+                aria-label="Siguiente"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all active:scale-90"
               >
                 <ChevronRight className="h-4 w-4 text-gray-400" />
@@ -188,7 +275,7 @@ export default function FinanzasPage() {
               <div className="mt-10 flex flex-col items-center gap-3">
                 <Wallet className="h-10 w-10 text-gray-300" />
                 <p className="text-sm text-gray-400">
-                  Sin movimientos en {nombreMes}
+                  Sin movimientos en {vista === "año" ? enfoque.getFullYear() : tituloVista(vista, enfoque)}
                 </p>
               </div>
             ) : (

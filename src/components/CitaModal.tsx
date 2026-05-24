@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   collection,
   addDoc,
@@ -17,6 +17,15 @@ import Input from "@/components/Input";
 import Select from "@/components/Select";
 import Textarea from "@/components/Textarea";
 import type { Cita } from "@/types/cita";
+
+function toDatetimeLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d}T${h}:${min}`;
+}
 
 interface CitaModalProps {
   isOpen: boolean;
@@ -36,6 +45,8 @@ export default function CitaModal({
   const [estado, setEstado] = useState("pendiente");
   const [guardando, setGuardando] = useState(false);
   const { showToast } = useToast();
+
+  const hoyMin = useMemo(() => toDatetimeLocal(new Date()), []);
 
   useEffect(() => {
     if (citaEditando) {
@@ -127,13 +138,21 @@ export default function CitaModal({
           </p>
         )}
 
-        <Input
-          label="Fecha y hora"
-          type="datetime-local"
-          value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-          required
-        />
+        <div>
+          <label className="mb-1 ml-4 block text-xs font-medium text-gray-400">
+            Fecha y hora
+          </label>
+          <div className="relative">
+            <input
+              type="datetime-local"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              min={hoyMin}
+              required
+              className="w-full rounded-full border border-[#E5E5E5] bg-white px-5 py-3 text-base text-foreground transition placeholder:text-gray-300 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-calendar-picker-indicator]:ml-2 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+            />
+          </div>
+        </div>
 
         <Select
           label="Estado"
