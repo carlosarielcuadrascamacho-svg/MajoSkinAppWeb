@@ -3,6 +3,7 @@
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BottomNav from "@/components/BottomNav";
 import PageTransition from "@/components/PageTransition";
+import SwipeNavigator from "@/components/SwipeNavigator";
 
 export default function AdminLayout({
   children,
@@ -12,7 +13,9 @@ export default function AdminLayout({
   return (
     <ProtectedRoute>
       <PageTransition>
-        <div className="pb-20">{children}</div>
+        <SwipeNavigator>
+          <div className="pb-20">{children}</div>
+        </SwipeNavigator>
       </PageTransition>
       <BottomNav />
     </ProtectedRoute>
