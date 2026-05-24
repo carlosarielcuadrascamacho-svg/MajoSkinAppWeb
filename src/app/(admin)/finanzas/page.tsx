@@ -16,7 +16,7 @@ import {
   Calendar,
   AlertTriangle,
 } from "lucide-react";
-import { deleteDoc, doc } from "firebase/firestore";
+import { deleteDoc, doc, addDoc, collection, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useTransacciones } from "@/hooks/useTransacciones";
 import { useProductos } from "@/hooks/useProductos";
@@ -27,6 +27,8 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import Skeleton from "@/components/Skeleton";
 import BottomSheet from "@/components/BottomSheet";
+import Input from "@/components/Input";
+import Select from "@/components/Select";
 import { useToast } from "@/context/ToastContext";
 import { formatearMonto } from "@/lib/utils";
 import { descargarCSV } from "@/lib/csv";
@@ -135,6 +137,10 @@ export default function FinanzasPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProdModalOpen, setIsProdModalOpen] = useState(false);
   const [isRestockOpen, setIsRestockOpen] = useState(false);
+  const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
+  const [ventaProductoId, setVentaProductoId] = useState("");
+  const [ventaCantidad, setVentaCantidad] = useState(1);
+  const [procesandoVenta, setProcesandoVenta] = useState(false);
   const [editando, setEditando] = useState<Transaccion | null>(null);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   const [eliminando, setEliminando] = useState<Transaccion | null>(null);
@@ -144,6 +150,50 @@ export default function FinanzasPage() {
   const [vista, setVista] = useState<Vista>("mes");
   const [enfoque, setEnfoque] = useState(() => new Date());
   const { showToast } = useToast();
+
+  const handleRegistrarVentaDirecta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ventaProductoId || ventaCantidad <= 0) {
+      showToast("Selecciona un producto y cantidad válidos", "error");
+      return;
+    }
+
+    const prodObj = productos.find((p) => p.id === ventaProductoId);
+    if (!prodObj) return;
+
+    if (prodObj.stock < ventaCantidad) {
+      showToast(`Stock insuficiente. Solo quedan ${prodObj.stock} unidades.`, "error");
+      return;
+    }
+
+    setProcesandoVenta(true);
+    try {
+      const montoTotal = prodObj.precio_venta * ventaCantidad;
+
+      // 1. Agregar ingreso en Firestore transacciones
+      await addDoc(collection(db, "transacciones"), {
+        tipo: "ingreso",
+        descripcion: `Venta Directa: ${prodObj.nombre} (${ventaCantidad} pz)`,
+        monto: montoTotal,
+        categoria: "Venta de Productos",
+        creadoEn: serverTimestamp(),
+      });
+
+      // 2. Descontar stock en Firestore productos
+      await updateDoc(doc(db, "productos", prodObj.id), {
+        stock: prodObj.stock - ventaCantidad,
+      });
+
+      showToast("Venta registrada con éxito", "success");
+      setIsDirectSaleOpen(false);
+      setVentaProductoId("");
+      setVentaCantidad(1);
+    } catch {
+      showToast("Error al registrar la venta", "error");
+    } finally {
+      setProcesandoVenta(false);
+    }
+  };
 
   // Calcular la velocidad diaria y estimación de fin de stock
   const prediccionesInventario = useMemo(() => {
@@ -604,18 +654,32 @@ export default function FinanzasPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-3 pb-24">
-                <button
-                  onClick={() => {
-                    if (typeof navigator !== "undefined" && navigator.vibrate) {
-                      navigator.vibrate(20);
-                    }
-                    setIsRestockOpen(true);
-                  }}
-                  className="mb-2 flex w-full items-center justify-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-6 py-3 text-sm font-semibold text-primary transition-all active:scale-95"
-                >
-                  <ShoppingBag className="h-4 w-4" />
-                  Lista de Compras Inteligente 🛒
-                </button>
+                <div className="grid grid-cols-2 gap-3 mb-2">
+                  <button
+                    onClick={() => {
+                      if (typeof navigator !== "undefined" && navigator.vibrate) {
+                        navigator.vibrate(20);
+                      }
+                      setIsRestockOpen(true);
+                    }}
+                    className="flex items-center justify-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-4 py-3 text-xs font-semibold text-primary transition-all active:scale-95"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    Lista de Compras 🛒
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (typeof navigator !== "undefined" && navigator.vibrate) {
+                        navigator.vibrate(20);
+                      }
+                      setIsDirectSaleOpen(true);
+                    }}
+                    className="flex items-center justify-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-4 py-3 text-xs font-semibold text-success transition-all active:scale-95"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Registrar Venta 🏷️
+                  </button>
+                </div>
                 {productos.map((p) => {
                   const bajoStock = p.stock <= p.stock_minimo;
                   const pred = prediccionesInventario[p.id] || { diaria: 0, diasRestantes: "Estable" };
@@ -824,6 +888,60 @@ export default function FinanzasPage() {
             </div>
           </div>
         </div>
+      </BottomSheet>
+
+      {/* BottomSheet: Registrar Venta Directa */}
+      <BottomSheet
+        isOpen={isDirectSaleOpen}
+        onClose={() => setIsDirectSaleOpen(false)}
+        title="Registrar Venta de Insumos 🏷️"
+      >
+        <form onSubmit={handleRegistrarVentaDirecta} className="flex flex-col gap-4 pb-safe text-foreground">
+          <p className="text-xs text-muted">
+            Registra una venta de producto de apoyo en casa realizada de forma directa en cabina (sin cita). El stock se descontará automáticamente y se sumará el ingreso en Finanzas.
+          </p>
+
+          <Select
+            label="Producto a Vender"
+            value={ventaProductoId}
+            onChange={(e) => setVentaProductoId(e.target.value)}
+            required
+          >
+            <option value="" disabled>Selecciona un producto</option>
+            {productos.map((p) => (
+              <option key={p.id} value={p.id} disabled={p.stock <= 0}>
+                {p.nombre} ({p.stock} disp.) - {formatearMonto(p.precio_venta)}
+              </option>
+            ))}
+          </Select>
+
+          <Input
+            label="Cantidad a Vender"
+            type="number"
+            min={1}
+            max={ventaProductoId ? productos.find((p) => p.id === ventaProductoId)?.stock || 1 : 99}
+            value={ventaCantidad}
+            onChange={(e) => setVentaCantidad(Math.max(1, parseInt(e.target.value) || 1))}
+            required
+          />
+
+          {ventaProductoId && (
+            <div className="rounded-2xl bg-border/20 p-4 border border-border flex justify-between items-center">
+              <span className="text-xs font-medium text-muted">Total a cobrar:</span>
+              <span className="text-lg font-bold text-success">
+                {formatearMonto((productos.find(p => p.id === ventaProductoId)?.precio_venta || 0) * ventaCantidad)}
+              </span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={procesandoVenta || !ventaProductoId}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-success py-3.5 text-sm font-semibold text-white shadow-lg transition-all active:scale-95 disabled:opacity-50"
+          >
+            {procesandoVenta ? "Registrando Venta..." : "Confirmar y Cobrar"}
+          </button>
+        </form>
       </BottomSheet>
     </div>
   );
